@@ -77,20 +77,30 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "6 Months Content Automation — Ironbrij" },
+      {
+        name: "description",
+        content:
+          "Generate a 6-month content strategy from your client avatar — audience psychology, hooks, stories, and ready-to-post LinkedIn and Facebook content.",
+      },
+      { name: "author", content: "Ironbrij" },
+      { property: "og:title", content: "6 Months Content Automation — Ironbrij" },
+      {
+        property: "og:description",
+        content:
+          "Turn one client avatar into 6 months of LinkedIn and Facebook content in minutes.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Lato:wght@400;500;600;700&display=swap",
       },
+      { rel: "stylesheet", href: appCss },
     ],
   }),
   shellComponent: RootShell,
