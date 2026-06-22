@@ -33,13 +33,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "6 Months Content Automation — Ironbrij" },
+      { title: "6 Months Content Automation — Clarify" },
       {
         name: "description",
         content:
           "Generate a 6-month content strategy from your client avatar. Audience psychology, hooks, stories, and 10 ready-to-post LinkedIn and Facebook posts.",
       },
-      { property: "og:title", content: "6 Months Content Automation — Ironbrij" },
+      { property: "og:title", content: "6 Months Content Automation — Clarify" },
       {
         property: "og:description",
         content:
@@ -156,10 +156,10 @@ function Header() {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <span className="font-display text-sm font-bold">IB</span>
+            <span className="font-display text-sm font-bold">C</span>
           </div>
           <div className="font-display text-base font-bold tracking-tight text-heading">
-            Ironbrij
+            Clarify
           </div>
         </div>
         <ThemeToggle />
@@ -191,7 +191,7 @@ function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-5 py-6 text-xs text-muted-foreground sm:px-8">
-        <span>© {new Date().getFullYear()} Ironbrij</span>
+        <span>© {new Date().getFullYear()} Clarify</span>
         <span>The bridge between ambition and achievement.</span>
       </div>
     </footer>
