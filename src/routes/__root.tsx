@@ -77,14 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "6 Months Content Automation — Ironbrij" },
+      { title: "6 Months Content Automation — Clarify" },
       {
         name: "description",
         content:
           "Generate a 6-month content strategy from your client avatar — audience psychology, hooks, stories, and ready-to-post LinkedIn and Facebook content.",
       },
-      { name: "author", content: "Ironbrij" },
-      { property: "og:title", content: "6 Months Content Automation — Ironbrij" },
+      { name: "author", content: "Clarify" },
+      { property: "og:title", content: "6 Months Content Automation — Clarify" },
       {
         property: "og:description",
         content:
