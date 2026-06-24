@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { UserButton } from "@clerk/tanstack-react-start";
+import { useUser, UserButton } from "@clerk/tanstack-react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -33,7 +32,6 @@ import {
 } from "@/lib/generate-content.functions";
 import { cn } from "@/lib/utils";
 
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -55,7 +53,7 @@ export const Route = createFileRoute("/")({
 });
 
 type StageStatus = "pending" | "active" | "done";
-const STAGE_DURATION_MS = [22000, 26000, 30000]; // rough per-stage estimates
+const STAGE_DURATION_MS = [22000, 26000, 30000];
 
 const STAGES = [
   { label: "Researching your audience's psychology", icon: Brain },
@@ -64,6 +62,7 @@ const STAGES = [
 ] as const;
 
 function Page() {
+  // ALL hooks must be at the top — before any early returns
   const { isLoaded, isSignedIn } = useUser();
   const navigate = useNavigate();
   const generate = useServerFn(generateContent);
@@ -94,6 +93,7 @@ function Page() {
     }
   }, [mutation.isSuccess]);
 
+  // Early return AFTER all hooks
   if (!isLoaded || !isSignedIn) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -413,8 +413,7 @@ function LoadingStages() {
               key={stage.label}
               className={cn(
                 "flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors",
-                status === "active" &&
-                  "border-primary/30 bg-soft-tint",
+                status === "active" && "border-primary/30 bg-soft-tint",
                 status === "done" && "border-border bg-background",
                 status === "pending" && "border-border bg-background opacity-60",
               )}
@@ -478,78 +477,27 @@ function Results({ data }: { data: GenerateResult }) {
         </TabsList>
 
         <TabsContent value="stage1" className="mt-6 space-y-6">
-          <Category
-            title="Fears"
-            description="What keeps them up at night"
-            icon={AlertCircle}
-            items={data.fears}
-          />
-          <Category
-            title="Frustrations"
-            description="Daily friction they hit"
-            icon={Flame}
-            items={data.frustrations}
-          />
-          <Category
-            title="Dreams"
-            description="The future they imagine"
-            icon={Sparkles}
-            items={data.dreams}
-          />
-          <Category
-            title="Desires"
-            description="What they actively want"
-            icon={Heart}
-            items={data.desires}
-          />
+          <Category title="Fears" description="What keeps them up at night" icon={AlertCircle} items={data.fears} />
+          <Category title="Frustrations" description="Daily friction they hit" icon={Flame} items={data.frustrations} />
+          <Category title="Dreams" description="The future they imagine" icon={Sparkles} items={data.dreams} />
+          <Category title="Desires" description="What they actively want" icon={Heart} items={data.desires} />
         </TabsContent>
 
         <TabsContent value="stage2" className="mt-6 space-y-6">
-          <Category
-            title="Hooks"
-            description="Opening lines that stop the scroll"
-            icon={Target}
-            items={data.hooks}
-          />
-          <Category
-            title="Stories"
-            description="Narrative arcs to draw from"
-            icon={PencilLine}
-            items={data.stories}
-            variant="long"
-          />
+          <Category title="Hooks" description="Opening lines that stop the scroll" icon={Target} items={data.hooks} />
+          <Category title="Stories" description="Narrative arcs to draw from" icon={PencilLine} items={data.stories} variant="long" />
         </TabsContent>
 
         <TabsContent value="stage3" className="mt-6 space-y-6">
-          <Category
-            title="LinkedIn Posts"
-            description="Ready to copy and publish"
-            icon={Megaphone}
-            items={data.linkedin_posts}
-            variant="long"
-          />
-          <Category
-            title="Facebook Posts"
-            description="Ready to copy and publish"
-            icon={Megaphone}
-            items={data.facebook_posts}
-            variant="long"
-          />
+          <Category title="LinkedIn Posts" description="Ready to copy and publish" icon={Megaphone} items={data.linkedin_posts} variant="long" />
+          <Category title="Facebook Posts" description="Ready to copy and publish" icon={Megaphone} items={data.facebook_posts} variant="long" />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function StageTab({
-  value,
-  index,
-  label,
-}: {
-  value: string;
-  index: number;
-  label: string;
-}) {
+function StageTab({ value, index, label }: { value: string; index: number; label: string }) {
   return (
     <TabsTrigger
       value={value}
@@ -584,13 +532,9 @@ function Category({
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-base font-semibold text-heading">
-            {title}
-          </h3>
+          <h3 className="font-display text-base font-semibold text-heading">{title}</h3>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          No {title.toLowerCase()} returned.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">No {title.toLowerCase()} returned.</p>
       </div>
     );
   }
@@ -605,9 +549,7 @@ function Category({
           <div>
             <h3 className="font-display text-base font-semibold text-heading">
               {title}{" "}
-              <span className="ml-1 text-xs font-medium text-muted-foreground">
-                ({items.length})
-              </span>
+              <span className="ml-1 text-xs font-medium text-muted-foreground">({items.length})</span>
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           </div>
