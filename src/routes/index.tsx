@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import {
   Flame,
   Heart,
   Loader2,
+  LogOut,
   Megaphone,
   PencilLine,
   Send,
@@ -29,23 +30,14 @@ import {
   generateContent,
   type GenerateResult,
 } from "@/lib/generate-content.functions";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "6 Months Content Automation — Clarify" },
-      {
-        name: "description",
-        content:
-          "Generate a 6-month content strategy from your client avatar. Audience psychology, hooks, stories, and 10 ready-to-post LinkedIn and Facebook posts.",
-      },
-      { property: "og:title", content: "6 Months Content Automation — Clarify" },
-      {
-        property: "og:description",
-        content:
-          "Turn one client avatar into 6 months of LinkedIn and Facebook content.",
-      },
+      { name: "description", content: "Generate a 6-month content strategy from your client avatar." },
     ],
   }),
   component: Page,
@@ -53,7 +45,6 @@ export const Route = createFileRoute("/")({
 
 type StageStatus = "pending" | "active" | "done";
 const STAGE_DURATION_MS = [22000, 26000, 30000];
-
 const STAGES = [
   { label: "Researching your audience's psychology", icon: Brain },
   { label: "Writing hooks and stories", icon: PencilLine },
@@ -62,18 +53,36 @@ const STAGES = [
 
 function Page() {
   const generate = useServerFn(generateContent);
+  const navigate = useNavigate();
+
+  const [authChecked, setAuthChecked] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [avatar, setAvatar] = useState("");
   const [servicesProfession, setServicesProfession] = useState("");
   const [audience, setAudience] = useState("");
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (input: {
-      avatar: string;
-      services_profession: string;
-      audience: string;
-    }) => generate({ data: input }),
+    mutationFn: (input: { avatar: string; services_profession: string; audience: string }) =>
+      generate({ data: input }),
   });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate({ to: "/sign-in" });
+      } else {
+        setUserEmail(session.user.email ?? null);
+        setAuthChecked(true);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) navigate({ to: "/sign-in" });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     if (mutation.isSuccess && resultsRef.current) {
@@ -81,55 +90,43 @@ function Page() {
     }
   }, [mutation.isSuccess]);
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/sign-in" });
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (
-      avatar.trim().length === 0 ||
-      servicesProfession.trim().length === 0 ||
-      audience.trim().length === 0
-    ) {
-      return;
-    }
-    mutation.mutate({
-      avatar: avatar.trim(),
-      services_profession: servicesProfession.trim(),
-      audience: audience.trim(),
-    });
+    if (!avatar.trim() || !servicesProfession.trim() || !audience.trim()) return;
+    mutation.mutate({ avatar: avatar.trim(), services_profession: servicesProfession.trim(), audience: audience.trim() });
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header userEmail={userEmail} onSignOut={handleSignOut} />
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
-          <InputCard
-            avatar={avatar}
-            setAvatar={setAvatar}
-            servicesProfession={servicesProfession}
-            setServicesProfession={setServicesProfession}
-            audience={audience}
-            setAudience={setAudience}
-            onSubmit={onSubmit}
-            isPending={mutation.isPending}
-          />
+          <InputCard avatar={avatar} setAvatar={setAvatar} servicesProfession={servicesProfession} setServicesProfession={setServicesProfession} audience={audience} setAudience={setAudience} onSubmit={onSubmit} isPending={mutation.isPending} />
           {mutation.isError && (
             <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <p className="font-medium">Generation failed</p>
-                <p className="text-destructive/80">
-                  {(mutation.error as Error)?.message ?? "Something went wrong. Please try again."}
-                </p>
+                <p className="text-destructive/80">{(mutation.error as Error)?.message ?? "Something went wrong. Please try again."}</p>
               </div>
             </div>
           )}
         </section>
-        {mutation.isPending && (
-          <section className="mt-10">
-            <LoadingStages />
-          </section>
-        )}
+        {mutation.isPending && <section className="mt-10"><LoadingStages /></section>}
         {mutation.isSuccess && mutation.data && (
           <section ref={resultsRef} className="mt-12 scroll-mt-8">
             <Results data={mutation.data} />
@@ -141,7 +138,7 @@ function Page() {
   );
 }
 
-function Header() {
+function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut: () => void }) {
   return (
     <header className="border-b border-border bg-background">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
@@ -151,7 +148,13 @@ function Header() {
           </div>
           <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
+          <button onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+            <LogOut className="h-3 w-3" />Sign out
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
@@ -161,15 +164,10 @@ function Hero() {
   return (
     <div className="max-w-3xl">
       <div className="inline-flex items-center gap-2 rounded-full border border-border bg-soft-tint px-3 py-1 text-xs font-medium text-soft-tint-foreground">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        Content strategy in a few minutes
+        <Sparkles className="h-3.5 w-3.5 text-primary" />Content strategy in a few minutes
       </div>
-      <h1 className="mt-4 font-display text-3xl font-bold tracking-tight text-heading sm:text-4xl">
-        6 Months Content Automation
-      </h1>
-      <p className="mt-3 text-base leading-relaxed text-body">
-        Describe your ideal client and we'll build a complete content strategy — audience psychology, creative hooks, stories, and ready-to-post LinkedIn and Facebook content.
-      </p>
+      <h1 className="mt-4 font-display text-3xl font-bold tracking-tight text-heading sm:text-4xl">6 Months Content Automation</h1>
+      <p className="mt-3 text-base leading-relaxed text-body">Describe your ideal client and we'll build a complete content strategy — audience psychology, creative hooks, stories, and ready-to-post LinkedIn and Facebook content.</p>
     </div>
   );
 }
@@ -186,19 +184,14 @@ function Footer() {
 }
 
 interface InputCardProps {
-  avatar: string;
-  setAvatar: (v: string) => void;
-  servicesProfession: string;
-  setServicesProfession: (v: string) => void;
-  audience: string;
-  setAudience: (v: string) => void;
+  avatar: string; setAvatar: (v: string) => void;
+  servicesProfession: string; setServicesProfession: (v: string) => void;
+  audience: string; setAudience: (v: string) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isPending: boolean;
 }
 
-function InputCard(props: InputCardProps) {
-  const { avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, onSubmit, isPending } = props;
-
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, onSubmit, isPending }: InputCardProps) {
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-7">
       <div className="space-y-5">
@@ -214,13 +207,9 @@ function InputCard(props: InputCardProps) {
           </Field>
         </div>
       </div>
-      <div className="mt-7 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <Button type="submit" disabled={isPending} className="h-11 bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary-hover focus-visible:ring-ring">
-          {isPending ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating…</>
-          ) : (
-            <>Generate my content strategy<Sparkles className="ml-2 h-4 w-4" /></>
-          )}
+      <div className="mt-7 flex justify-end">
+        <Button type="submit" disabled={isPending} className="h-11 bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary-hover">
+          {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating…</> : <>Generate my content strategy<Sparkles className="ml-2 h-4 w-4" /></>}
         </Button>
       </div>
     </form>
@@ -248,19 +237,15 @@ function Field({ id, label, hint, guideSection, children }: { id: string; label:
 
 function LoadingStages() {
   const [statuses, setStatuses] = useState<StageStatus[]>(["active", "pending", "pending"]);
-
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     let elapsed = 0;
     for (let i = 0; i < STAGES.length - 1; i++) {
       elapsed += STAGE_DURATION_MS[i];
-      timers.push(setTimeout(() => {
-        setStatuses((prev) => { const next = [...prev]; next[i] = "done"; next[i + 1] = "active"; return next; });
-      }, elapsed));
+      timers.push(setTimeout(() => { setStatuses((prev) => { const next = [...prev]; next[i] = "done"; next[i + 1] = "active"; return next; }); }, elapsed));
     }
     return () => { for (const t of timers) clearTimeout(t); };
   }, []);
-
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <p className="font-display text-sm font-semibold text-heading">Working on your strategy</p>
@@ -284,15 +269,9 @@ function LoadingStages() {
 
 function Results({ data }: { data: GenerateResult }) {
   const generatedAt = useMemo(() => { try { return new Date(data.generated_at).toLocaleString(); } catch { return data.generated_at; } }, [data.generated_at]);
-
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-heading">Your content strategy</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p>
-        </div>
-      </div>
+      <div className="mb-6"><h2 className="font-display text-2xl font-bold text-heading">Your content strategy</h2><p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p></div>
       <Tabs defaultValue="stage1" className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-secondary p-1">
           <StageTab value="stage1" index={1} label="Audience Psychology" />
@@ -330,17 +309,12 @@ function StageTab({ value, index, label }: { value: string; index: number; label
 
 function Category({ title, description, icon: Icon, items, variant = "short" }: { title: string; description: string; icon: React.ComponentType<{ className?: string }>; items: string[]; variant?: "short" | "long" }) {
   const allText = items.join("\n\n");
-  if (items.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-base font-semibold text-heading">{title}</h3>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">No {title.toLowerCase()} returned.</p>
-      </div>
-    );
-  }
+  if (items.length === 0) return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2"><Icon className="h-4 w-4 text-primary" /><h3 className="font-display text-base font-semibold text-heading">{title}</h3></div>
+      <p className="mt-2 text-sm text-muted-foreground">No {title.toLowerCase()} returned.</p>
+    </div>
+  );
   return (
     <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
