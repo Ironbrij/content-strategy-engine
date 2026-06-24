@@ -73,6 +73,23 @@ const STAGES = [
 ] as const;
 
 function Page() {
+  const { isLoaded, isSignedIn } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      navigate({ to: "/sign-in" });
+    }
+  }, [isLoaded, isSignedIn, navigate]);
+
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const generate = useServerFn(generateContent);
 
   const mutation = useMutation({
