@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider } from "@clerk/tanstack-react-start";
 import {
   Outlet,
   Link,
@@ -117,9 +116,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ClerkProvider publishableKey="pk_test_aGFuZHktZ29zaGF3ay0yOS5jbGVyay5hY2NvdW50cy5kZXYk">
-          {children}
-        </ClerkProvider>
+        {children}
         <Scripts />
       </body>
     </html>
