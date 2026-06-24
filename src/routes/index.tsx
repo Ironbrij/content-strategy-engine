@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  BookOpen,
   Brain,
   CheckCircle2,
   Circle,
@@ -233,6 +234,7 @@ function InputCard(props: InputCardProps) {
           id="avatar"
           label="Ideal client avatar"
           hint="Describe one specific person — name, role, situation, what's on their plate."
+          guideSection="avatar"
         >
           <Textarea
             id="avatar"
@@ -252,6 +254,7 @@ function InputCard(props: InputCardProps) {
             id="services"
             label="Services or profession"
             hint="What do you do or sell?"
+            guideSection="services"
           >
             <Input
               id="services"
@@ -264,7 +267,7 @@ function InputCard(props: InputCardProps) {
             />
           </Field>
 
-          <Field id="audience" label="Target audience" hint="Who is your broader market?">
+          <Field id="audience" label="Target audience" hint="Who is your broader market?" guideSection="audience">
             <Input
               id="audience"
               value={audience}
@@ -305,11 +308,13 @@ function Field({
   id,
   label,
   hint,
+  guideSection,
   children,
 }: {
   id: string;
   label: string;
   hint?: string;
+  guideSection?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -318,7 +323,22 @@ function Field({
         {label}
       </Label>
       {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {hint && (
+        <p className="text-xs text-muted-foreground">
+          {hint}{" "}
+          {guideSection && (
+            <a
+              href={"/guide#" + guideSection}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <BookOpen className="h-3 w-3" />
+              See guide
+            </a>
+          )}
+        </p>
+      )}
     </div>
   );
 }
