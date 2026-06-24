@@ -1,5 +1,4 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
-import { clerkMiddleware } from "@clerk/tanstack-react-start/server";
 
 import { renderErrorPage } from "./lib/error-page";
 
@@ -19,5 +18,5 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [clerkMiddleware(), errorMiddleware],
+  requestMiddleware: [errorMiddleware],
 }));
