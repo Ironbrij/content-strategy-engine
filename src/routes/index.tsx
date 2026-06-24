@@ -1,4 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { auth } from "@clerk/tanstack-react-start/server";
+import { UserButton } from "@clerk/tanstack-react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -31,7 +34,16 @@ import {
 } from "@/lib/generate-content.functions";
 import { cn } from "@/lib/utils";
 
+const authStateFn = createServerFn().handler(async () => {
+  const { isAuthenticated, userId } = await auth();
+  if (!isAuthenticated) {
+    throw redirect({ to: "/sign-in" });
+  }
+  return { userId };
+});
+
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => await authStateFn(),
   head: () => ({
     meta: [
       { title: "6 Months Content Automation — Clarify" },
@@ -163,7 +175,10 @@ function Header() {
             Clarify
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          <UserButton afterSignOutUrl="/sign-in" />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
