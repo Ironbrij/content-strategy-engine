@@ -112,7 +112,7 @@ function SignInPage() {
               onClick={handleGoogle}
               disabled={isGoogleLoading || isLoading}
               variant="outline"
-              className="w-full gap-2 border-border bg-white py-5 text-sm font-medium text-heading transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="w-full gap-2 border-border bg-background py-5 text-sm font-medium text-heading transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               {isGoogleLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -139,11 +139,11 @@ function SignInPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="font-display text-sm font-semibold text-heading">Email address</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required disabled={isLoading} autoComplete="email" className="h-11 border-border bg-white text-body placeholder:text-muted-foreground focus-visible:ring-primary" />
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required disabled={isLoading} autoComplete="email" className="h-11 border-border bg-background text-body placeholder:text-muted-foreground focus-visible:ring-primary" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-display text-sm font-semibold text-heading">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required disabled={isLoading} autoComplete="current-password" className="h-11 border-border bg-white text-body placeholder:text-muted-foreground focus-visible:ring-primary" />
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required disabled={isLoading} autoComplete="current-password" className="h-11 border-border bg-background text-body placeholder:text-muted-foreground focus-visible:ring-primary" />
               </div>
               {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
               <Button type="submit" disabled={isLoading || isGoogleLoading} className="h-11 w-full bg-primary font-semibold text-white hover:bg-primary-hover">
