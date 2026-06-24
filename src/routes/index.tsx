@@ -24,6 +24,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CopyButton } from "@/components/copy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -139,24 +147,48 @@ function Page() {
 }
 
 function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut: () => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   return (
-    <header className="border-b border-border bg-background">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <span className="font-display text-sm font-bold">C</span>
+    <>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-base font-semibold text-heading">Sign out?</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              You'll need to sign back in to access your content strategy tool.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => { setConfirmOpen(false); onSignOut(); }}
+              className="bg-primary font-semibold text-white hover:bg-primary-hover"
+            >
+              Sign out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <header className="border-b border-border bg-background">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <span className="font-display text-sm font-bold">C</span>
+            </div>
+            <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
           </div>
-          <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
+          <div className="flex items-center gap-3">
+            {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
+            <button onClick={() => setConfirmOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              <LogOut className="h-3 w-3" />Sign out
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
-          <button onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-            <LogOut className="h-3 w-3" />Sign out
-          </button>
-          <ThemeToggle />
-        </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }
 
