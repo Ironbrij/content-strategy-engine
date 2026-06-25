@@ -1,7 +1,25 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, ArrowLeft, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
@@ -33,6 +51,10 @@ function HistoryPage() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -55,6 +77,24 @@ function HistoryPage() {
       setGenerations(data as Generation[]);
     }
     setIsLoading(false);
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    await supabase.from("generations").delete().eq("id", deleteId);
+    setGenerations((prev) => prev.filter((g) => g.id !== deleteId));
+    setDeleteId(null);
+    setIsDeleting(false);
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    await supabase.from("generations").delete().eq("id", deleteId);
+    setGenerations((prev) => prev.filter((g) => g.id !== deleteId));
+    setDeleteId(null);
+    setIsDeleting(false);
   }
 
   if (!authChecked || isLoading) {
@@ -98,6 +138,28 @@ function HistoryPage() {
           </p>
         </div>
 
+        {/* Delete confirmation dialog */}
+        <Dialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="font-display text-base font-semibold text-heading">Delete this generation?</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                This can't be undone. The content strategy will be permanently removed from your history.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDeleteId(null)} disabled={isDeleting}>Cancel</Button>
+              <Button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-destructive font-semibold text-white hover:bg-destructive/90"
+              >
+                {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting…</> : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {generations.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-12 text-center">
             <Clock className="mx-auto h-10 w-10 text-muted-foreground/40" />
@@ -120,6 +182,7 @@ function HistoryPage() {
                 generation={gen}
                 isExpanded={expandedId === gen.id}
                 onToggle={() => setExpandedId(expandedId === gen.id ? null : gen.id)}
+                onDelete={() => setDeleteId(gen.id)}
               />
             ))}
           </div>
@@ -133,10 +196,12 @@ function GenerationCard({
   generation: gen,
   isExpanded,
   onToggle,
+  onDelete,
 }: {
   generation: Generation;
   isExpanded: boolean;
   onToggle: () => void;
+  onDelete: () => void;
 }) {
   const date = new Date(gen.created_at).toLocaleString();
   const avatarPreview = gen.avatar.length > 120 ? gen.avatar.slice(0, 120) + "…" : gen.avatar;
@@ -161,8 +226,17 @@ function GenerationCard({
               </span>
             </div>
           </div>
-          <div className="shrink-0 text-muted-foreground">
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Delete this generation"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <span className="text-muted-foreground">
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </span>
           </div>
         </div>
       </button>
