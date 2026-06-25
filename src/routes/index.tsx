@@ -157,6 +157,19 @@ function Page() {
         {mutation.isSuccess && mutation.data && (
           <section ref={resultsRef} className="mt-12 scroll-mt-8">
             <Results data={mutation.data} />
+            <div className="mt-8 flex justify-center">
+              <Button
+                onClick={() => {
+                  mutation.reset();
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                variant="outline"
+                className="gap-2 border-border px-6 font-medium text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                <Sparkles className="h-4 w-4" />
+                Generate another strategy
+              </Button>
+            </div>
           </section>
         )}
       </main>
@@ -192,12 +205,12 @@ function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut:
 
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <span className="font-display text-sm font-bold">C</span>
             </div>
             <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
             <Link to="/history" className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
