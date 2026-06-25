@@ -11,15 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
@@ -53,8 +44,6 @@ function HistoryPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -77,15 +66,6 @@ function HistoryPage() {
       setGenerations(data as Generation[]);
     }
     setIsLoading(false);
-  }
-
-  async function handleDelete() {
-    if (!deleteId) return;
-    setIsDeleting(true);
-    await supabase.from("generations").delete().eq("id", deleteId);
-    setGenerations((prev) => prev.filter((g) => g.id !== deleteId));
-    setDeleteId(null);
-    setIsDeleting(false);
   }
 
   async function handleDelete() {
