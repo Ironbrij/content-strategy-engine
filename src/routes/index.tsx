@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,14 +24,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { CopyButton } from "@/components/copy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -65,6 +57,7 @@ function Page() {
 
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [avatar, setAvatar] = useState("");
   const [servicesProfession, setServicesProfession] = useState("");
   const [audience, setAudience] = useState("");
@@ -73,6 +66,23 @@ function Page() {
   const mutation = useMutation({
     mutationFn: (input: { avatar: string; services_profession: string; audience: string }) =>
       generate({ data: input }),
+    onSuccess: async (data, variables) => {
+      if (!userId) return;
+      await supabase.from("generations").insert({
+        user_id: userId,
+        avatar: variables.avatar,
+        services_profession: variables.services_profession,
+        audience: variables.audience,
+        fears: data.fears,
+        frustrations: data.frustrations,
+        dreams: data.dreams,
+        desires: data.desires,
+        hooks: data.hooks,
+        stories: data.stories,
+        linkedin_posts: data.linkedin_posts,
+        facebook_posts: data.facebook_posts,
+      });
+    },
   });
 
   useEffect(() => {
@@ -81,6 +91,7 @@ function Page() {
         navigate({ to: "/sign-in" });
       } else {
         setUserEmail(session.user.email ?? null);
+        setUserId(session.user.id);
         setAuthChecked(true);
       }
     });
@@ -147,48 +158,27 @@ function Page() {
 }
 
 function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut: () => void }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
   return (
-    <>
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="font-display text-base font-semibold text-heading">Sign out?</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              You'll need to sign back in to access your content strategy tool.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-            <Button
-              onClick={() => { setConfirmOpen(false); onSignOut(); }}
-              className="bg-primary font-semibold text-white hover:bg-primary-hover"
-            >
-              Sign out
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <span className="font-display text-sm font-bold">C</span>
-            </div>
-            <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
+    <header className="border-b border-border bg-background">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <span className="font-display text-sm font-bold">C</span>
           </div>
-          <div className="flex items-center gap-3">
-            {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
-            <button onClick={() => setConfirmOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-              <LogOut className="h-3 w-3" />Sign out
-            </button>
-            <ThemeToggle />
-          </div>
+          <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
         </div>
-      </header>
-    </>
+        <div className="flex items-center gap-3">
+          {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
+          <Link to="/history" className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+            History
+          </Link>
+          <button onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+            <LogOut className="h-3 w-3" />Sign out
+          </button>
+          <ThemeToggle />
+        </div>
+      </div>
+    </header>
   );
 }
 
