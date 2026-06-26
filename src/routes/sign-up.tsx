@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,8 @@ function BrandPanel() {
   );
 }
 
+const RESEND_COOLDOWN = 60;
+
 function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,6 +71,27 @@ function SignUpPage() {
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [countdown, setCountdown] = useState(RESEND_COOLDOWN);
+  const [canResend, setCanResend] = useState(false);
+
+  // Start resend countdown after successful sign-up
+  useEffect(() => {
+    if (!success) return;
+    setCountdown(RESEND_COOLDOWN);
+    setCanResend(false);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setCanResend(true);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [success]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,11 +117,30 @@ function SignUpPage() {
     if (error) { setError(error.message); setIsGoogleLoading(false); }
   }
 
+  async function handleResend() {
+    if (!canResend || isResending) return;
+    setIsResending(true);
+    setError(null);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/` },
+    });
+    if (error) {
+      setError(error.message);
+    } else {
+      // Restart the cooldown
+      setCountdown(RESEND_COOLDOWN);
+      setCanResend(false);
+    }
+    setIsResending(false);
+  }
+
   if (success) {
     return (
       <div className="flex min-h-screen bg-background">
         <BrandPanel />
-        <div className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:px-12 xl:w-3/5">
+        <main className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:px-12 xl:w-3/5">
           <div className="w-full max-w-[420px]">
             <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
               <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-primary">
@@ -110,13 +152,31 @@ function SignUpPage() {
               <p className="mt-2 text-sm text-body">
                 We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
               </p>
+
+              <div className="mt-6 border-t border-border pt-5">
+                <p className="text-xs text-muted-foreground">Didn't get it? Check your spam folder, or</p>
+                {error && <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={!canResend || isResending}
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isResending
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+                    : canResend
+                    ? "Resend confirmation email"
+                    : `Resend in ${countdown}s`}
+                </button>
+              </div>
+
               <p className="mt-5 text-sm text-body">
                 Already confirmed?{" "}
                 <Link to="/sign-in" className="font-semibold text-primary hover:underline">Sign in</Link>
               </p>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -124,7 +184,7 @@ function SignUpPage() {
   return (
     <div className="flex min-h-screen bg-background">
       <BrandPanel />
-      <div className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:px-12 xl:w-3/5">
+      <main className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:px-12 xl:w-3/5">
         <div className="w-full max-w-[420px]">
           <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
@@ -189,7 +249,7 @@ function SignUpPage() {
             <Link to="/sign-in" className="font-semibold text-primary hover:underline">Sign in</Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
