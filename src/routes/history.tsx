@@ -60,7 +60,8 @@ function HistoryPage() {
     const { data, error } = await supabase
       .from("generations")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
 
     if (!error && data) {
       setGenerations(data as Generation[]);
