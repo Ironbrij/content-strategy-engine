@@ -189,9 +189,19 @@ function GenerationCard({
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Card header — always visible */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? "Collapse" : "Expand"} generation from ${date}`}
         onClick={onToggle}
-        className="w-full px-6 py-5 text-left transition-colors hover:bg-muted/30"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="w-full cursor-pointer px-6 py-5 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -210,16 +220,16 @@ function GenerationCard({
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title="Delete this generation"
+              aria-label="Delete this generation"
             >
               <Trash2 className="h-4 w-4" />
             </button>
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground" aria-hidden="true">
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </span>
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Expanded content */}
       {isExpanded && (
