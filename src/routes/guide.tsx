@@ -105,7 +105,7 @@ function GuidePage() {
 
       {/* Page intro */}
       <div className="mx-auto max-w-3xl px-4 pt-10 pb-6 sm:px-6">
-        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-tint px-3 py-1 text-xs font-medium text-primary">
+        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-soft-tint px-3 py-1 text-xs font-medium text-soft-tint-foreground">
           <BookOpen className="h-3 w-3" />
           How to get the best results
         </div>
@@ -185,7 +185,7 @@ function GuidePage() {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
                   Example
                 </p>
-                <p className="rounded-lg border border-border bg-tint/50 p-4 text-sm italic text-muted-foreground">
+                <p className="rounded-lg border border-border bg-soft-tint/50 p-4 text-sm italic text-muted-foreground">
                   {section.example}
                 </p>
               </div>
