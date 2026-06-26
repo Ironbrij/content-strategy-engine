@@ -47,7 +47,7 @@ function ResetPasswordPage() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <h2 className="font-display text-xl font-semibold text-heading">Password updated</h2>
-          <p className="mt-2 text-sm text-body">Redirecting you to the app…</p>
+          <p className="mt-2 text-sm text-body">Taking you back to Clarify…</p>
         </div>
       </div>
     );
