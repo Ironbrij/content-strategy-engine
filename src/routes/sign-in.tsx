@@ -98,7 +98,7 @@ function SignInPage() {
     setIsLoading(true);
     setError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) { setError(error.message); setIsLoading(false); return; }
     setIsLoading(false);
