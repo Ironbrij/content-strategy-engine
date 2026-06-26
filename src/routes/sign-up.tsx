@@ -74,8 +74,9 @@ function SignUpPage() {
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_COOLDOWN);
   const [canResend, setCanResend] = useState(false);
+  const [resendTick, setResendTick] = useState(0);
 
-  // Start resend countdown after successful sign-up
+  // Start (or restart) the resend countdown whenever success fires or resendTick increments
   useEffect(() => {
     if (!success) return;
     setCountdown(RESEND_COOLDOWN);
@@ -91,7 +92,7 @@ function SignUpPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [success]);
+  }, [success, resendTick]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -129,9 +130,9 @@ function SignUpPage() {
     if (error) {
       setError(error.message);
     } else {
-      // Restart the cooldown
-      setCountdown(RESEND_COOLDOWN);
-      setCanResend(false);
+      // Incrementing resendTick causes the useEffect to re-run,
+      // which resets countdown to 60 and starts a fresh interval.
+      setResendTick((n) => n + 1);
     }
     setIsResending(false);
   }
