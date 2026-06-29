@@ -1,3 +1,9 @@
+import {
+  generateContent,
+  type GenerateResult,
+  type StoryItem,
+} from "@/lib/generate-content.functions";
+
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
