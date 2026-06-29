@@ -9,6 +9,13 @@ const inputSchema = z.object({
 
 export type GenerateInput = z.infer<typeof inputSchema>;
 
+export interface StoryItem {
+  framework: string;
+  format: string;
+  type: string;
+  story: string;
+}
+
 export interface GenerateResult {
   avatar: string;
   services_profession: string;
@@ -19,7 +26,7 @@ export interface GenerateResult {
   dreams: string[];
   desires: string[];
   hooks: string[];
-  stories: string[];
+  stories: StoryItem[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -27,10 +34,31 @@ export interface GenerateResult {
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
-      .map((v) => (typeof v === "string" ? v : typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)))
+      .map((v) => (typeof v === "string" ? v : String(v)))
       .filter((s) => s && s.trim().length > 0);
   }
   return [];
+}
+
+function toStoryArray(value: unknown): StoryItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v): StoryItem | null => {
+      if (typeof v === "object" && v !== null && typeof (v as any).story === "string") {
+        return {
+          framework: typeof (v as any).framework === "string" ? (v as any).framework : "",
+          format: typeof (v as any).format === "string" ? (v as any).format : "",
+          type: typeof (v as any).type === "string" ? (v as any).type : "",
+          story: (v as any).story,
+        };
+      }
+      // Fallback: handle plain strings (old format)
+      if (typeof v === "string" && v.trim().length > 0) {
+        return { framework: "", format: "", type: "", story: v };
+      }
+      return null;
+    })
+    .filter((s): s is StoryItem => s !== null);
 }
 
 export const generateContent = createServerFn({ method: "POST" })
@@ -54,7 +82,6 @@ export const generateContent = createServerFn({ method: "POST" })
     }
 
     const raw = await res.json();
-    // n8n sometimes wraps responses in an array
     const payload = Array.isArray(raw) ? raw[0] ?? {} : raw;
 
     return {
@@ -67,7 +94,7 @@ export const generateContent = createServerFn({ method: "POST" })
       dreams: toStringArray(payload.dreams),
       desires: toStringArray(payload.desires),
       hooks: toStringArray(payload.hooks),
-      stories: toStringArray(payload.stories),
+      stories: toStoryArray(payload.stories),
       linkedin_posts: toStringArray(payload.linkedin_posts),
       facebook_posts: toStringArray(payload.facebook_posts),
     };
