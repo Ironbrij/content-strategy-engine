@@ -341,7 +341,20 @@ function Results({ data }: { data: GenerateResult }) {
   const generatedAt = useMemo(() => { try { return new Date(data.generated_at).toLocaleString(); } catch { return data.generated_at; } }, [data.generated_at]);
   return (
     <div>
-      <div className="mb-6"><h2 className="font-display text-2xl font-bold text-heading">Your content strategy</h2><p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p></div>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h2 className="font-display text-2xl font-bold text-heading">Your content strategy</h2>
+    <p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p>
+  </div>
+  <Button
+    onClick={() => downloadStrategyPdf(data)}
+    variant="outline"
+    className="gap-2 border-border font-medium text-muted-foreground hover:border-primary hover:text-primary"
+  >
+    <Download className="h-4 w-4" />
+    Download PDF
+  </Button>
+</div>
       <Tabs defaultValue="stage1" className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-secondary p-1">
           <StageTab value="stage1" index={1} label="Audience Psychology" />
