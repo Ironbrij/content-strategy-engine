@@ -38,6 +38,28 @@ function normalizeStories(stories: unknown[]): string[] {
   });
 }
 
+// jsPDF's standard fonts only support WinAnsi (roughly Latin-1) characters.
+// Emoji and other symbols outside that range corrupt rendering for the rest
+// of the line, producing garbled text. Strip them before adding to the PDF,
+// and normalize a few common "smart" punctuation marks to safe equivalents.
+function sanitizeForPdf(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "") // emoji blocks (emoticons, symbols, pictographs, etc.)
+    .replace(/[\u{2600}-\u{27BF}]/gu, "") // misc symbols & dingbats (☀–➿)
+    .replace(/[\u{2B00}-\u{2BFF}]/gu, "") // misc symbols and arrows
+    .replace(/[\u{2190}-\u{21FF}]/gu, "") // arrows
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, "") // variation selectors
+    .replace(/\u200D/g, "") // zero-width joiner
+    .replace(/[\u2018\u2019]/g, "'") // smart single quotes
+    .replace(/[\u201C\u201D]/g, '"') // smart double quotes
+    .replace(/\u2013/g, "-") // en dash
+    .replace(/\u2014/g, "--") // em dash
+    .replace(/\u2026/g, "...") // ellipsis
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
 export function downloadStrategyPdf(data: PdfStrategyData) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -58,14 +80,16 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(...PRIMARY);
-    doc.text(title, margin, y);
+    doc.text(sanitizeForPdf(title), margin, y);
     y += 8;
     doc.setDrawColor(...BORDER);
     doc.line(margin, y, pageWidth - margin, y);
     y += 18;
   }
 
-  function addItem(text: string, index?: number) {
+  function addItem(rawText: string, index?: number) {
+    const text = sanitizeForPdf(rawText);
+    if (!text) return;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10.5);
     doc.setTextColor(...BODY);
@@ -77,7 +101,8 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     y += lines.length * lineHeight + 8;
   }
 
-  function addLabeledField(label: string, value: string) {
+  function addLabeledField(label: string, rawValue: string) {
+    const value = sanitizeForPdf(rawValue);
     ensureSpace(20);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
