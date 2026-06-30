@@ -139,11 +139,9 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     doc.setFontSize(9.5);
     doc.setTextColor(...BODY);
     const generatedDate = (() => {
-      try {
-        return new Date(data.generated_at).toLocaleString();
-      } catch {
-        return data.generated_at;
-      }
+      const d = new Date(data.generated_at);
+      if (isNaN(d.getTime())) return data.generated_at;
+      return d.toLocaleString();
     })();
     doc.text(`Generated ${generatedDate}`, margin + 42, 60);
 
@@ -204,10 +202,11 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     doc.setFontSize(13);
     doc.setTextColor(...HEADING);
     doc.text(title, margin + 16, y);
+    const titleWidth = doc.getTextWidth(title);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(...MUTED);
-    doc.text(`(${count})`, margin + 16 + doc.getTextWidth(title) + 5, y);
+    doc.text(`(${count})`, margin + 16 + titleWidth + 5, y);
     y += 8;
     doc.setDrawColor(...BORDER);
     doc.line(margin, y, pageWidth - margin, y);
