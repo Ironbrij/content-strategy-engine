@@ -220,11 +220,18 @@ function GenerationCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-             onClick={(e) => { e.stopPropagation(); downloadStrategyPdf({ ...gen, generated_at: gen.created_at }); }}
-             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-             aria-label="Download this generation as PDF"
-            >
-            <Download className="h-4 w-4" />
+  onClick={(e) => { e.stopPropagation(); downloadStrategyPdf({ ...gen, generated_at: gen.created_at }); }}
+  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+  aria-label="Download this generation as PDF"
+>
+  <Download className="h-4 w-4" />
+</button>
+<button
+  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+  aria-label="Delete this generation"
+>
+  <Trash2 className="h-4 w-4" />
 </button>
   onClick={(e) => { e.stopPropagation(); onDelete(); }}
   className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
