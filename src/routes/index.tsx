@@ -438,25 +438,7 @@ function StoryCategory({ items }: { items: StoryItem[] }) {
       <ul className="space-y-2">
         {items.map((item, i) => (
           <li key={i} className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/30 hover:bg-soft-tint/40">
-            {(item.framework || item.format || item.type) && (
-              <div className="flex flex-wrap gap-1.5">
-                {item.framework && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    {item.framework}
-                  </span>
-                )}
-                {item.format && (
-                  <span className="rounded-full bg-soft-tint px-2 py-0.5 text-xs font-medium text-soft-tint-foreground">
-                    {item.format}
-                  </span>
-                )}
-                {item.type && (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                    {item.type}
-                  </span>
-                )}
-              </div>
-            )}
+            
             <div className="flex items-start gap-3">
               <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] leading-7 text-body">
                 {item.story}
