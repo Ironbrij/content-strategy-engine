@@ -1,9 +1,3 @@
-import {
-  generateContent,
-  type GenerateResult,
-  type StoryItem,
-} from "@/lib/generate-content.functions";
-
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -43,6 +37,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import {
   generateContent,
   type GenerateResult,
+  type StoryItem,
 } from "@/lib/generate-content.functions";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -359,7 +354,7 @@ function Results({ data }: { data: GenerateResult }) {
         </TabsContent>
         <TabsContent value="stage2" className="mt-6 space-y-6">
           <Category title="Hooks" description="Opening lines that stop the scroll" icon={Target} items={data.hooks} />
-          <Category title="Stories" description="Narrative arcs to draw from" icon={PencilLine} items={data.stories} variant="long" />
+          <StoryCategory items={data.stories} />
         </TabsContent>
         <TabsContent value="stage3" className="mt-6 space-y-6">
           <Category title="LinkedIn Posts" description="Ready to copy and publish" icon={Megaphone} items={data.linkedin_posts} variant="long" />
@@ -405,6 +400,69 @@ function Category({ title, description, icon: Icon, items, variant = "short" }: 
           <li key={i} className={cn("group flex items-start gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary/30 hover:bg-soft-tint/40", variant === "long" && "p-4")}>
             <p className={cn("min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-body", variant === "long" && "text-[15px] leading-7")}>{item}</p>
             <CopyButton text={item} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StoryCategory({ items }: { items: StoryItem[] }) {
+  const allText = items.map((s) => s.story).join("\n\n");
+  if (items.length === 0) return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <PencilLine className="h-4 w-4 text-primary" />
+        <h3 className="font-display text-base font-semibold text-heading">Stories</h3>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">No stories returned.</p>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-soft-tint text-primary">
+            <PencilLine className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-heading">
+              Stories{" "}
+              <span className="ml-1 text-xs font-medium text-muted-foreground">({items.length})</span>
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">Narrative arcs to draw from</p>
+          </div>
+        </div>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/30 hover:bg-soft-tint/40">
+            {(item.framework || item.format || item.type) && (
+              <div className="flex flex-wrap gap-1.5">
+                {item.framework && (
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    {item.framework}
+                  </span>
+                )}
+                {item.format && (
+                  <span className="rounded-full bg-soft-tint px-2 py-0.5 text-xs font-medium text-soft-tint-foreground">
+                    {item.format}
+                  </span>
+                )}
+                {item.type && (
+                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                    {item.type}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="flex items-start gap-3">
+              <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] leading-7 text-body">
+                {item.story}
+              </p>
+              <CopyButton text={item.story} />
+            </div>
           </li>
         ))}
       </ul>
