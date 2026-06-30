@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, ArrowLeft, Clock, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, ChevronDown, ChevronUp, Trash2, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
+import { downloadStrategyPdf } from "@/lib/pdf-export";
 
 export const Route = createFileRoute("/history")({
   head: () => ({ meta: [{ title: "History — Clarify" }] }),
@@ -219,12 +220,19 @@ function GenerationCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              aria-label="Delete this generation"
+             onClick={(e) => { e.stopPropagation(); downloadStrategyPdf(gen); }}
+             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+             aria-label="Download this generation as PDF"
             >
-              <Trash2 className="h-4 w-4" />
-            </button>
+             <Download className="h-4 w-4" />
+             </button>
+            <button
+  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+  aria-label="Delete this generation"
+>
+  <Trash2 className="h-4 w-4" />
+</button>
             <span className="text-muted-foreground" aria-hidden="true">
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </span>
