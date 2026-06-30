@@ -282,17 +282,11 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     const textX = margin + padX + badgeSpace;
     const textWidth = maxWidth - padX * 2 - badgeSpace;
 
-    const pills = [item.framework, item.format, item.type].filter(Boolean).map(sanitizeForPdf);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    let pillsHeight = 0;
-    if (pills.length > 0) pillsHeight = 22;
-
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.8);
     const lines = doc.splitTextToSize(text, textWidth);
     const lineHeight = 13.5;
-    const cardHeight = Math.max(lines.length * lineHeight + padY * 2 + pillsHeight, 34);
+    const cardHeight = Math.max(lines.length * lineHeight + padY * 2, 34);
     ensureSpace(cardHeight + 8);
 
     doc.setDrawColor(...BORDER);
@@ -308,28 +302,10 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     doc.setTextColor(...WHITE);
     doc.text(String(index + 1), badgeCx, badgeCy + 3, { align: "center" });
 
-    let textY = y + padY + 8;
-
-    if (pills.length > 0) {
-      let pillX = textX;
-      const pillY = y + padY - 2;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      pills.forEach((p) => {
-        const w = doc.getTextWidth(p) + 12;
-        doc.setFillColor(...TINT);
-        doc.roundedRect(pillX, pillY, w, 14, 7, 7, "F");
-        doc.setTextColor(...PRIMARY);
-        doc.text(p, pillX + w / 2, pillY + 10, { align: "center" });
-        pillX += w + 6;
-      });
-      textY += 18;
-    }
-
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.8);
     doc.setTextColor(...BODY);
-    doc.text(lines, textX, textY);
+    doc.text(lines, textX, y + padY + 8);
     y += cardHeight + 8;
   }
 
