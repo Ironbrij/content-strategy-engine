@@ -41,6 +41,8 @@ import {
 } from "@/lib/generate-content.functions";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { downloadStrategyPdf } from "@/lib/pdf-export";
+import { Download } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
