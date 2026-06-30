@@ -31,7 +31,7 @@ interface Generation {
   dreams: string[];
   desires: string[];
   hooks: string[];
-  stories: string[];
+  stories: unknown[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -257,7 +257,7 @@ function GenerationCard({
           <OutputSection title="Dreams" items={gen.dreams} />
           <OutputSection title="Desires" items={gen.desires} />
           <OutputSection title="Hooks" items={gen.hooks} />
-          <OutputSection title="Stories" items={gen.stories} long />
+          <StoryOutputSection items={gen.stories} />
           <OutputSection title="LinkedIn Posts" items={gen.linkedin_posts} long />
           <OutputSection title="Facebook Posts" items={gen.facebook_posts} long />
         </div>
@@ -298,6 +298,55 @@ function OutputSection({
               {item}
             </p>
             <CopyButton text={item} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StoryOutputSection({ items }: { items: unknown[] }) {
+  if (!items || items.length === 0) return null;
+
+  const stories = items.map((item) => {
+    if (typeof item === "object" && item !== null && typeof (item as any).story === "string") {
+      const s = item as any;
+      return { story: s.story, framework: s.framework ?? "", format: s.format ?? "", type: s.type ?? "" };
+    }
+    if (typeof item === "string") {
+      try {
+        const parsed = JSON.parse(item);
+        if (parsed?.story) return { story: parsed.story, framework: parsed.framework ?? "", format: parsed.format ?? "", type: parsed.type ?? "" };
+      } catch {}
+      return { story: item, framework: "", format: "", type: "" };
+    }
+    return { story: String(item), framework: "", format: "", type: "" };
+  });
+
+  const allText = stories.map((s) => s.story).join("\n\n");
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          Stories <span className="ml-1 font-normal text-muted-foreground">({stories.length})</span>
+        </p>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-2">
+        {stories.map((s, i) => (
+          <li key={i} className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
+            {(s.framework || s.format || s.type) && (
+              <div className="flex flex-wrap gap-1.5">
+                {s.framework && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{s.framework}</span>}
+                {s.format && <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{s.format}</span>}
+                {s.type && <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{s.type}</span>}
+              </div>
+            )}
+            <div className="flex items-start gap-3">
+              <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-7 text-body">{s.story}</p>
+              <CopyButton text={s.story} />
+            </div>
           </li>
         ))}
       </ul>
