@@ -249,7 +249,7 @@ function Hero() {
         <Sparkles className="h-3.5 w-3.5 text-primary transition-transform group-hover:rotate-12" />
         Content strategy in a few minutes
       </div>
-      <h1 className="mt-4 font-display text-4xl font-extrabold tracking-tight text-heading sm:text-6xl md:text-7xl">
+      <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-heading sm:text-4xl md:text-5xl">
         Clarify
       </h1>
       <p className="mt-3 font-display text-lg font-semibold text-heading sm:text-xl">
@@ -308,9 +308,9 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-7"
+      className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8"
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <p className="font-display text-sm font-semibold text-heading">Tell us who you're writing for</p>
         {isEmpty && !isPending && (
           <button
@@ -323,7 +323,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
           </button>
         )}
       </div>
-      <div className="space-y-5">
+      <div className="space-y-7">
         <Field id="avatar" label="Ideal client avatar" hint="Describe one specific person — name, role, situation, what's on their plate." guideSection="avatar">
           <Textarea
             id="avatar"
@@ -334,10 +334,10 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
             maxLength={2000}
             disabled={isPending}
             required
-            className="resize-y placeholder:text-muted-foreground/60"
+            className="resize-y px-4 py-3 leading-relaxed placeholder:text-muted-foreground/60"
           />
         </Field>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-7 sm:grid-cols-2">
           <Field id="services" label="Services or profession" hint="What do you do or sell?" guideSection="services">
             <Input
               id="services"
@@ -347,7 +347,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
               maxLength={500}
               disabled={isPending}
               required
-              className="placeholder:text-muted-foreground/60"
+              className="h-11 px-4 placeholder:text-muted-foreground/60"
             />
           </Field>
           <Field id="audience" label="Target audience" hint="Who is your broader market?" guideSection="audience">
@@ -359,7 +359,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
               maxLength={500}
               disabled={isPending}
               required
-              className="placeholder:text-muted-foreground/60"
+              className="h-11 px-4 placeholder:text-muted-foreground/60"
             />
           </Field>
         </div>
@@ -383,7 +383,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
 
 function Field({ id, label, hint, guideSection, children }: { id: string; label: string; hint?: string; guideSection?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <Label htmlFor={id} className="font-display text-sm font-semibold text-heading">{label}</Label>
       {children}
       {hint && (
