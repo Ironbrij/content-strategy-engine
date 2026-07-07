@@ -308,7 +308,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8"
+      className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6"
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <p className="font-display text-sm font-semibold text-heading">Tell us who you're writing for</p>
