@@ -346,7 +346,7 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
   data.facebook_posts.forEach((item, i) => addNumberedCard(item, i, FACEBOOK_COLOR));
 
   // ---- Footer on every page ----
-  const totalPages = doc.internal.getNumberOfPages();
+  const totalPages = (doc.internal as unknown as { getNumberOfPages: () => number }).getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setDrawColor(...BORDER);

@@ -206,21 +206,33 @@ function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut:
         </DialogContent>
       </Dialog>
 
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
-          <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-8 sm:py-4">
+          <Link to="/" className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <span className="font-display text-sm font-bold">C</span>
             </div>
-            <div className="font-display text-base font-bold tracking-tight text-heading">Clarify</div>
+            <div className="truncate font-display text-base font-bold tracking-tight text-heading">Clarify</div>
           </Link>
-          <div className="flex items-center gap-3">
-            {userEmail && <span className="hidden text-xs text-muted-foreground sm:block">{userEmail}</span>}
-            <Link to="/history" className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {userEmail && (
+              <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground md:block" title={userEmail}>
+                {userEmail}
+              </span>
+            )}
+            <Link
+              to="/history"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
+            >
               History
             </Link>
-            <button onClick={() => setConfirmOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-              <LogOut className="h-3 w-3" />Sign out
+            <button
+              onClick={() => setConfirmOpen(true)}
+              aria-label="Sign out"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign out</span>
             </button>
             <ThemeToggle />
           </div>
@@ -233,11 +245,19 @@ function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut:
 function Hero() {
   return (
     <div className="max-w-3xl">
-      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-soft-tint px-3 py-1 text-xs font-medium text-soft-tint-foreground">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />Content strategy in a few minutes
+      <div className="group inline-flex items-center gap-2 rounded-full border border-border bg-soft-tint px-3 py-1 text-xs font-medium text-soft-tint-foreground transition-all hover:border-primary/40 hover:shadow-sm">
+        <Sparkles className="h-3.5 w-3.5 text-primary transition-transform group-hover:rotate-12" />
+        Content strategy in a few minutes
       </div>
-      <h1 className="mt-4 font-display text-3xl font-bold tracking-tight text-heading sm:text-4xl">6 Months Content Automation</h1>
-      <p className="mt-3 text-base leading-relaxed text-body">Describe your ideal client and we'll build a complete content strategy — audience psychology, creative hooks, stories, and ready-to-post LinkedIn and Facebook content.</p>
+      <h1 className="mt-4 font-display text-5xl font-extrabold tracking-tight text-heading sm:text-6xl md:text-7xl">
+        Clarify
+      </h1>
+      <p className="mt-3 font-display text-lg font-semibold text-heading sm:text-xl">
+        6 months of content strategy, built in minutes.
+      </p>
+      <p className="mt-3 text-base leading-relaxed text-body">
+        One avatar in — audience psychology, hooks, stories, and ready-to-post LinkedIn and Facebook content out.
+      </p>
     </div>
   );
 }
@@ -245,13 +265,30 @@ function Hero() {
 function Footer() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-5 py-6 text-xs text-muted-foreground sm:px-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-2 px-5 py-6 text-center text-xs text-muted-foreground sm:flex-row sm:justify-between sm:gap-4 sm:px-8 sm:text-left">
         <span>© {new Date().getFullYear()} Clarify</span>
-        <span>The bridge between ambition and achievement.</span>
+        <span className="italic sm:order-2">The bridge between ambition and achievement.</span>
+        <a
+          href="https://ironbrij.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] opacity-70 transition-opacity hover:opacity-100 sm:order-3"
+        >
+          Powered by <span className="font-semibold">Ironbrij</span>
+        </a>
       </div>
     </footer>
   );
 }
+
+const EXAMPLE = {
+  avatar:
+    "Mark, 45, runs a 6-person NDIS support coordination business in Western Sydney. He's drowning in admin — 3 hours a day on emails and scheduling instead of growing his client base. Tried hiring locally but couldn't justify the full-time cost. Wants to step back and focus on bringing in new participants.",
+  services:
+    "Virtual assistant agency — done-for-you admin, inbox, and scheduling for NDIS providers and allied health businesses in Australia.",
+  audience:
+    "NDIS providers, support coordinators, and allied health practice owners in Australia with teams of 2–10 staff.",
+};
 
 interface InputCardProps {
   avatar: string; setAvatar: (v: string) => void;
@@ -262,24 +299,83 @@ interface InputCardProps {
 }
 
 function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, onSubmit, isPending }: InputCardProps) {
+  function loadExample() {
+    setAvatar(EXAMPLE.avatar);
+    setServicesProfession(EXAMPLE.services);
+    setAudience(EXAMPLE.audience);
+  }
+  const isEmpty = !avatar && !servicesProfession && !audience;
+
   return (
-    <form onSubmit={onSubmit} className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-7">
+    <form
+      onSubmit={onSubmit}
+      className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-7"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="font-display text-sm font-semibold text-heading">Tell us who you're writing for</p>
+        {isEmpty && !isPending && (
+          <button
+            type="button"
+            onClick={loadExample}
+            className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          >
+            <Sparkles className="h-3 w-3" />
+            Try an example
+          </button>
+        )}
+      </div>
       <div className="space-y-5">
         <Field id="avatar" label="Ideal client avatar" hint="Describe one specific person — name, role, situation, what's on their plate." guideSection="avatar">
-          <Textarea id="avatar" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="Sarah, 38, runs a 4-person bookkeeping firm. Overwhelmed by admin and chasing clients for paperwork. Wants to grow but can't see past this week's inbox." rows={4} maxLength={2000} disabled={isPending} required className="resize-y" />
+          <Textarea
+            id="avatar"
+            value={avatar}
+            onChange={(e) => setAvatar(e.target.value)}
+            placeholder="e.g. Sarah, 38, runs a 4-person bookkeeping firm. Overwhelmed by admin and chasing clients for paperwork. Wants to grow but can't see past this week's inbox."
+            rows={4}
+            maxLength={2000}
+            disabled={isPending}
+            required
+            className="resize-y placeholder:text-muted-foreground/60"
+          />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field id="services" label="Services or profession" hint="What do you do or sell?" guideSection="services">
-            <Input id="services" value={servicesProfession} onChange={(e) => setServicesProfession(e.target.value)} placeholder="Virtual assistant agency for accountants" maxLength={500} disabled={isPending} required />
+            <Input
+              id="services"
+              value={servicesProfession}
+              onChange={(e) => setServicesProfession(e.target.value)}
+              placeholder="e.g. Virtual assistant agency for accountants"
+              maxLength={500}
+              disabled={isPending}
+              required
+              className="placeholder:text-muted-foreground/60"
+            />
           </Field>
           <Field id="audience" label="Target audience" hint="Who is your broader market?" guideSection="audience">
-            <Input id="audience" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Owners of 2–10 person accounting / bookkeeping firms" maxLength={500} disabled={isPending} required />
+            <Input
+              id="audience"
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
+              placeholder="e.g. Owners of 2–10 person accounting firms"
+              maxLength={500}
+              disabled={isPending}
+              required
+              className="placeholder:text-muted-foreground/60"
+            />
           </Field>
         </div>
       </div>
-      <div className="mt-7 flex justify-end">
-        <Button type="submit" disabled={isPending} className="h-11 bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary-hover">
-          {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating…</> : <>Generate my content strategy<Sparkles className="ml-2 h-4 w-4" /></>}
+      <div className="mt-7 flex justify-stretch sm:justify-end">
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="h-11 w-full bg-primary px-6 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary-hover hover:shadow-md active:scale-[0.99] disabled:opacity-70 sm:w-auto"
+        >
+          {isPending ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating your strategy…</>
+          ) : (
+            <>Generate my content strategy<Sparkles className="ml-2 h-4 w-4" /></>
+          )}
         </Button>
       </div>
     </form>
@@ -292,11 +388,18 @@ function Field({ id, label, hint, guideSection, children }: { id: string; label:
       <Label htmlFor={id} className="font-display text-sm font-semibold text-heading">{label}</Label>
       {children}
       {hint && (
-        <p className="text-xs text-muted-foreground">
-          {hint}{" "}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span>{hint}</span>
           {guideSection && (
-            <a href={"/guide#" + guideSection} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline">
-              <BookOpen className="h-3 w-3" />See guide
+            <a
+              href={"/guide#" + guideSection}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open the field guide in a new tab"
+              className="inline-flex items-center gap-1 rounded-md font-medium text-primary no-underline transition-colors hover:text-primary-hover hover:underline underline-offset-2"
+            >
+              <BookOpen className="h-3 w-3" />
+              See guide
             </a>
           )}
         </p>
