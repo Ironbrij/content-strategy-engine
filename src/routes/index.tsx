@@ -249,14 +249,13 @@ function Hero() {
         <Sparkles className="h-3.5 w-3.5 text-primary transition-transform group-hover:rotate-12" />
         Content strategy in a few minutes
       </div>
-      <h1 className="mt-4 font-display text-5xl font-extrabold tracking-tight text-heading sm:text-6xl md:text-7xl">
+      <h1 className="mt-4 font-display text-4xl font-extrabold tracking-tight text-heading sm:text-6xl md:text-7xl">
         Clarify
       </h1>
       <p className="mt-3 font-display text-lg font-semibold text-heading sm:text-xl">
-        Clarify
+        6 months of content strategy, built in minutes.
       </p>
       <p className="mt-3 text-base leading-relaxed text-body">
-        6 months of content strategy, built in minutes.
         One avatar in — audience psychology, hooks, stories, and ready-to-post LinkedIn and Facebook content out.
       </p>
     </div>
@@ -268,7 +267,6 @@ function Footer() {
     <footer className="border-t border-border">
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-2 px-5 py-6 text-center text-xs text-muted-foreground sm:flex-row sm:justify-between sm:gap-4 sm:px-8 sm:text-left">
         <span>© {new Date().getFullYear()} Clarify</span>
-        <span className="italic sm:order-2">Powered by Ironbrij</span>
         <a
           href="https://ironbrij.com"
           target="_blank"
