@@ -14,7 +14,9 @@ import {
   LogOut,
   Megaphone,
   PencilLine,
+  ScrollText,
   Send,
+  Shapes,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -58,7 +60,7 @@ type StageStatus = "pending" | "active" | "done";
 const STAGE_DURATION_MS = [22000, 26000, 30000];
 const STAGES = [
   { label: "Researching your audience's psychology", icon: Brain },
-  { label: "Writing hooks and stories", icon: PencilLine },
+  { label: "Writing hooks, stories, metaphors & parables", icon: PencilLine },
   { label: "Drafting your posts", icon: Send },
 ] as const;
 
@@ -72,10 +74,11 @@ function Page() {
   const [avatar, setAvatar] = useState("");
   const [servicesProfession, setServicesProfession] = useState("");
   const [audience, setAudience] = useState("");
+  const [persona, setPersona] = useState("");
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (input: { avatar: string; services_profession: string; audience: string }) =>
+    mutationFn: (input: { avatar: string; services_profession: string; audience: string; persona: string }) =>
       generate({ data: input }),
     onSuccess: async (data, variables) => {
       if (!userId) return;
@@ -84,12 +87,15 @@ function Page() {
         avatar: variables.avatar,
         services_profession: variables.services_profession,
         audience: variables.audience,
+        persona: variables.persona,
         fears: data.fears,
         frustrations: data.frustrations,
         dreams: data.dreams,
         desires: data.desires,
         hooks: data.hooks,
         stories: data.stories,
+        metaphors: data.metaphors,
+        parables: data.parables,
         linkedin_posts: data.linkedin_posts,
         facebook_posts: data.facebook_posts,
       });
@@ -127,8 +133,13 @@ function Page() {
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!avatar.trim() || !servicesProfession.trim() || !audience.trim()) return;
-    mutation.mutate({ avatar: avatar.trim(), services_profession: servicesProfession.trim(), audience: audience.trim() });
+    if (!avatar.trim() || !servicesProfession.trim() || !audience.trim() || !persona.trim()) return;
+    mutation.mutate({
+      avatar: avatar.trim(),
+      services_profession: servicesProfession.trim(),
+      audience: audience.trim(),
+      persona: persona.trim(),
+    });
   }
 
   if (!authChecked) {
@@ -145,7 +156,18 @@ function Page() {
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
-          <InputCard avatar={avatar} setAvatar={setAvatar} servicesProfession={servicesProfession} setServicesProfession={setServicesProfession} audience={audience} setAudience={setAudience} onSubmit={onSubmit} isPending={mutation.isPending} />
+          <InputCard
+            avatar={avatar}
+            setAvatar={setAvatar}
+            servicesProfession={servicesProfession}
+            setServicesProfession={setServicesProfession}
+            audience={audience}
+            setAudience={setAudience}
+            persona={persona}
+            setPersona={setPersona}
+            onSubmit={onSubmit}
+            isPending={mutation.isPending}
+          />
           {mutation.isError && (
             <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -256,7 +278,7 @@ function Hero() {
         6 months of content strategy, built in minutes.
       </p>
       <p className="mt-3 text-base leading-relaxed text-body">
-        One avatar in — audience psychology, hooks, stories, and ready-to-post LinkedIn and Facebook content out.
+        One avatar in — audience psychology, hooks, stories, metaphors, parables, and ready-to-post LinkedIn and Facebook content out.
       </p>
     </div>
   );
@@ -287,23 +309,26 @@ const EXAMPLE = {
     "Virtual assistant agency — done-for-you admin, inbox, and scheduling for NDIS providers and allied health businesses in Australia.",
   audience:
     "NDIS providers, support coordinators, and allied health practice owners in Australia with teams of 2–10 staff.",
+  persona: "Alex Hormozi — direct, blunt, high-energy, short punchy sentences, no fluff.",
 };
 
 interface InputCardProps {
   avatar: string; setAvatar: (v: string) => void;
   servicesProfession: string; setServicesProfession: (v: string) => void;
   audience: string; setAudience: (v: string) => void;
+  persona: string; setPersona: (v: string) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isPending: boolean;
 }
 
-function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, onSubmit, isPending }: InputCardProps) {
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending }: InputCardProps) {
   function loadExample() {
     setAvatar(EXAMPLE.avatar);
     setServicesProfession(EXAMPLE.services);
     setAudience(EXAMPLE.audience);
+    setPersona(EXAMPLE.persona);
   }
-  const isEmpty = !avatar && !servicesProfession && !audience;
+  const isEmpty = !avatar && !servicesProfession && !audience && !persona;
 
   return (
     <form
@@ -363,6 +388,18 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
             />
           </Field>
         </div>
+        <Field id="persona" label="Persona to imitate" hint="Whose voice or writing style should we imitate?" guideSection="persona">
+          <Input
+            id="persona"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            placeholder="e.g. Alex Hormozi — direct, blunt, high-energy, short punchy sentences"
+            maxLength={300}
+            disabled={isPending}
+            required
+            className="h-11 px-4 placeholder:text-muted-foreground/60"
+          />
+        </Field>
       </div>
       <div className="mt-7 flex justify-stretch sm:justify-end">
         <Button
@@ -447,6 +484,11 @@ function Results({ data }: { data: GenerateResult }) {
   <div>
     <h2 className="font-display text-2xl font-bold text-heading">Your content strategy</h2>
     <p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p>
+    {data.persona && (
+      <p className="mt-1 text-sm text-muted-foreground">
+        Written in the voice of <span className="font-medium text-heading">{data.persona}</span>
+      </p>
+    )}
   </div>
   <Button
     onClick={() => downloadStrategyPdf(data)}
@@ -472,6 +514,8 @@ function Results({ data }: { data: GenerateResult }) {
         <TabsContent value="stage2" className="mt-6 space-y-6">
           <Category title="Hooks" description="Opening lines that stop the scroll" icon={Target} items={data.hooks} />
           <StoryCategory items={data.stories} />
+          <Category title="Metaphors" description="Short, memorable comparisons that simplify a core pain point" icon={Shapes} items={data.metaphors} />
+          <Category title="Parables" description="Short illustrative stories that teach a lesson" icon={ScrollText} items={data.parables} />
         </TabsContent>
         <TabsContent value="stage3" className="mt-6 space-y-6">
           <Category title="LinkedIn Posts" description="Ready to copy and publish" icon={Megaphone} items={data.linkedin_posts} variant="long" />
