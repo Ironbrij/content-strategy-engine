@@ -27,12 +27,15 @@ interface Generation {
   avatar: string;
   services_profession: string;
   audience: string;
+  persona?: string;
   fears: string[];
   frustrations: string[];
   dreams: string[];
   desires: string[];
   hooks: string[];
   stories: unknown[];
+  metaphors?: string[];
+  parables?: string[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -244,7 +247,7 @@ function GenerationCard({
       {isExpanded && (
         <div className="border-t border-border px-6 pb-6 pt-5 space-y-6">
           {/* Inputs summary */}
-          <div className="grid gap-3 rounded-lg border border-border bg-background p-4 sm:grid-cols-3">
+          <div className="grid gap-3 rounded-lg border border-border bg-background p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Avatar</p>
               <p className="mt-1 text-sm text-body">{gen.avatar}</p>
@@ -257,6 +260,12 @@ function GenerationCard({
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Audience</p>
               <p className="mt-1 text-sm text-body">{gen.audience}</p>
             </div>
+            {gen.persona && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Persona</p>
+                <p className="mt-1 text-sm text-body">{gen.persona}</p>
+              </div>
+            )}
           </div>
 
           {/* Output sections */}
@@ -266,6 +275,8 @@ function GenerationCard({
           <OutputSection title="Desires" items={gen.desires} />
           <OutputSection title="Hooks" items={gen.hooks} />
           <StoryOutputSection items={gen.stories} />
+          <OutputSection title="Metaphors" items={gen.metaphors ?? []} />
+          <OutputSection title="Parables" items={gen.parables ?? []} />
           <OutputSection title="LinkedIn Posts" items={gen.linkedin_posts} long />
           <OutputSection title="Facebook Posts" items={gen.facebook_posts} long />
         </div>
