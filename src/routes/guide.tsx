@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, Users, Briefcase } from "lucide-react";
+import { ArrowLeft, BookOpen, Users, Briefcase, Drama } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export const Route = createFileRoute("/guide")({
@@ -78,6 +78,22 @@ const SECTIONS: GuideSection[] = [
     example:
       "NDIS providers, support coordinators, and allied health practice owners in Australia with small teams of 2–10 staff who are growing but not yet large enough to justify hiring full-time admin.",
     videoPlaceholder: true,
+  },
+  {
+    id: "persona",
+    icon: <Drama className="h-5 w-5" />,
+    label: "Persona to Imitate",
+    title: "How to choose a persona to imitate",
+    why: "Every other field controls what gets written. This one controls how it sounds. Naming a persona gives the AI a consistent voice — sentence rhythm, tone, level of directness — to write your hooks, stories, metaphors, and parables in, instead of defaulting to generic marketing-speak.",
+    tips: [
+      "Name a real, well-known communicator whose voice you admire — a public figure, author, or creator",
+      "Add 2–3 descriptive words after the name to sharpen the style (e.g. 'direct, blunt, no fluff' vs 'warm, story-led, conversational')",
+      "Pick someone whose style actually fits your brand — a playful persona will feel off for a compliance-heavy niche",
+      "You can change this per generation to test different voices against the same avatar",
+      "If you don't have anyone specific in mind, describe the tone instead of a name (e.g. 'a calm, no-nonsense mentor')",
+    ],
+    example: "Alex Hormozi — direct, blunt, high-energy, short punchy sentences, no fluff.",
+    videoPlaceholder: false,
   },
 ];
 
