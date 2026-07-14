@@ -5,6 +5,7 @@ const inputSchema = z.object({
   avatar: z.string().trim().min(1).max(2000),
   services_profession: z.string().trim().min(1).max(500),
   audience: z.string().trim().min(1).max(500),
+  persona: z.string().trim().min(1).max(300),
 });
 
 export type GenerateInput = z.infer<typeof inputSchema>;
@@ -20,6 +21,7 @@ export interface GenerateResult {
   avatar: string;
   services_profession: string;
   audience: string;
+  persona: string;
   generated_at: string;
   fears: string[];
   frustrations: string[];
@@ -27,6 +29,8 @@ export interface GenerateResult {
   desires: string[];
   hooks: string[];
   stories: StoryItem[];
+  metaphors: string[];
+  parables: string[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -81,13 +85,33 @@ export const generateContent = createServerFn({ method: "POST" })
       throw new Error(`Content generation failed (${res.status})`);
     }
 
-    const raw = await res.json();
-    const payload = Array.isArray(raw) ? raw[0] ?? {} : raw;
+    // Read as text first so we can tell the difference between "the webhook
+    // came back empty" (usually a timeout / n8n execution error before the
+    // Respond to Webhook node fires) and "the webhook came back with junk".
+    // Both used to surface as the opaque "Unexpected end of JSON input".
+    const rawText = await res.text();
+    if (!rawText.trim()) {
+      console.error("Webhook returned an empty body (status " + res.status + ")");
+      throw new Error(
+        "The content generator returned an empty response. This usually means the n8n workflow timed out or errored before responding — check the n8n execution log, then try again."
+      );
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(rawText);
+    } catch {
+      console.error("Webhook returned invalid JSON", rawText.slice(0, 500));
+      throw new Error("The content generator returned an unreadable response. Please try again.");
+    }
+
+    const payload = Array.isArray(raw) ? (raw[0] ?? {}) : (raw as Record<string, unknown>);
 
     return {
       avatar: data.avatar,
       services_profession: data.services_profession,
       audience: data.audience,
+      persona: data.persona,
       generated_at: typeof payload.generated_at === "string" ? payload.generated_at : new Date().toISOString(),
       fears: toStringArray(payload.fears),
       frustrations: toStringArray(payload.frustrations),
@@ -95,6 +119,8 @@ export const generateContent = createServerFn({ method: "POST" })
       desires: toStringArray(payload.desires),
       hooks: toStringArray(payload.hooks),
       stories: toStoryArray(payload.stories),
+      metaphors: toStringArray(payload.metaphors),
+      parables: toStringArray(payload.parables),
       linkedin_posts: toStringArray(payload.linkedin_posts),
       facebook_posts: toStringArray(payload.facebook_posts),
     };
