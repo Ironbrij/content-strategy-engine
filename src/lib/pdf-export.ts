@@ -4,6 +4,7 @@ export interface PdfStrategyData {
   avatar: string;
   services_profession: string;
   audience: string;
+  persona?: string;
   generated_at: string;
   fears: string[];
   frustrations: string[];
@@ -11,6 +12,8 @@ export interface PdfStrategyData {
   desires: string[];
   hooks: string[];
   stories: unknown[];
+  metaphors?: string[];
+  parables?: string[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -31,6 +34,8 @@ const DREAM_COLOR: RGB = [0, 103, 255];
 const DESIRE_COLOR: RGB = [219, 39, 119];
 const HOOK_COLOR: RGB = [0, 103, 255];
 const STORY_COLOR: RGB = [124, 58, 237];
+const METAPHOR_COLOR: RGB = [13, 148, 136];
+const PARABLE_COLOR: RGB = [180, 83, 9];
 const LINKEDIN_COLOR: RGB = [10, 102, 194];
 const FACEBOOK_COLOR: RGB = [24, 119, 242];
 
@@ -180,6 +185,11 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
 
     const avatarHeight = fieldBlock(innerX, innerW, "Avatar", data.avatar);
     y += avatarHeight + rowGap;
+
+    if (data.persona) {
+      const personaHeight = fieldBlock(innerX, innerW, "Persona to Imitate", data.persona);
+      y += personaHeight + rowGap;
+    }
 
     const colGap = 24;
     const colWidth = (innerW - colGap) / 2;
@@ -336,6 +346,16 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
   const stories = normalizeStories(data.stories);
   drawSectionTitle("Stories", stories.length, STORY_COLOR);
   stories.forEach((item, i) => addStoryCard(item, i));
+  y += 10;
+
+  const metaphors = data.metaphors ?? [];
+  drawSectionTitle("Metaphors", metaphors.length, METAPHOR_COLOR);
+  metaphors.forEach((item, i) => addNumberedCard(item, i, METAPHOR_COLOR));
+  y += 10;
+
+  const parables = data.parables ?? [];
+  drawSectionTitle("Parables", parables.length, PARABLE_COLOR);
+  parables.forEach((item, i) => addNumberedCard(item, i, PARABLE_COLOR));
   y += 10;
 
   drawSectionTitle("LinkedIn Posts", data.linkedin_posts.length, LINKEDIN_COLOR);
