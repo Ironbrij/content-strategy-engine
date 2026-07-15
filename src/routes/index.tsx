@@ -75,6 +75,7 @@ function Page() {
   const [servicesProfession, setServicesProfession] = useState("");
   const [audience, setAudience] = useState("");
   const [persona, setPersona] = useState("");
+  const [historySaveError, setHistorySaveError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const mutation = useMutation({
@@ -82,7 +83,8 @@ function Page() {
       generate({ data: input }),
     onSuccess: async (data, variables) => {
       if (!userId) return;
-      await supabase.from("generations").insert({
+      setHistorySaveError(null);
+      const { error } = await supabase.from("generations").insert({
         user_id: userId,
         avatar: variables.avatar,
         services_profession: variables.services_profession,
@@ -99,6 +101,15 @@ function Page() {
         linkedin_posts: data.linkedin_posts,
         facebook_posts: data.facebook_posts,
       });
+      if (error) {
+        // Don't block the results the person already has in front of them —
+        // just make the failure visible instead of silently dropping it,
+        // since a save failure here used to fail with no trace anywhere.
+        console.error("Failed to save generation to history:", error.message);
+        setHistorySaveError(
+          "This result wasn't saved to your history (" + error.message + "). Your content above is still safe to copy or download."
+        );
+      }
     },
   });
 
@@ -181,6 +192,12 @@ function Page() {
         {mutation.isPending && <section className="mt-10"><LoadingStages /></section>}
         {mutation.isSuccess && mutation.data && (
           <section ref={resultsRef} className="mt-12 scroll-mt-8">
+            {historySaveError && (
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{historySaveError}</p>
+              </div>
+            )}
             <Results data={mutation.data} />
             <div className="mt-8 flex justify-center">
               <Button
