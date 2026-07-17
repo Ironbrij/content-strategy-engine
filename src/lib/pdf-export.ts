@@ -12,8 +12,8 @@ export interface PdfStrategyData {
   desires: string[];
   hooks: string[];
   stories: unknown[];
-  metaphors?: string[];
-  parables?: string[];
+  metaphors?: unknown[];
+  parables?: unknown[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -65,6 +65,48 @@ function normalizeStories(stories: unknown[]): NormalizedStory[] {
     }
     return { story: String(item), framework: "", format: "", type: "" };
   });
+}
+
+interface NormalizedMetaphor {
+  title: string;
+  concept: string;
+  story: string;
+}
+
+function normalizeMetaphors(metaphors: unknown[]): NormalizedMetaphor[] {
+  return (metaphors || [])
+    .map((item): NormalizedMetaphor | null => {
+      if (typeof item === "object" && item !== null && typeof (item as any).story === "string") {
+        const m = item as any;
+        return { title: m.title ?? "", concept: m.concept ?? "", story: m.story };
+      }
+      if (typeof item === "string" && item.trim().length > 0) {
+        return { title: "", concept: "", story: item };
+      }
+      return null;
+    })
+    .filter((m): m is NormalizedMetaphor => m !== null);
+}
+
+interface NormalizedParable {
+  title: string;
+  lesson: string;
+  story: string;
+}
+
+function normalizeParables(parables: unknown[]): NormalizedParable[] {
+  return (parables || [])
+    .map((item): NormalizedParable | null => {
+      if (typeof item === "object" && item !== null && typeof (item as any).story === "string") {
+        const p = item as any;
+        return { title: p.title ?? "", lesson: p.lesson ?? "", story: p.story };
+      }
+      if (typeof item === "string" && item.trim().length > 0) {
+        return { title: "", lesson: "", story: item };
+      }
+      return null;
+    })
+    .filter((p): p is NormalizedParable => p !== null);
 }
 
 // jsPDF's standard fonts only support WinAnsi (roughly Latin-1) characters.
@@ -319,6 +361,148 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
     y += cardHeight + 8;
   }
 
+  function addMetaphorCard(item: NormalizedMetaphor, index: number) {
+    const storyText = sanitizeForPdf(item.story);
+    if (!storyText) return;
+    const titleText = sanitizeForPdf(item.title);
+    const conceptText = sanitizeForPdf(item.concept);
+    const padX = 14;
+    const padY = 10;
+    const badgeSpace = 26;
+    const textX = margin + padX + badgeSpace;
+    const textWidth = maxWidth - padX * 2 - badgeSpace;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    const titleLines = titleText ? doc.splitTextToSize(titleText, textWidth) : [];
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8.8);
+    const conceptLines = conceptText ? doc.splitTextToSize(conceptText, textWidth) : [];
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.8);
+    const storyLines = doc.splitTextToSize(storyText, textWidth);
+
+    const titleBlockHeight = titleLines.length ? titleLines.length * 13 + 3 : 0;
+    const conceptBlockHeight = conceptLines.length ? conceptLines.length * 11 + 5 : 0;
+    const storyLineHeight = 13.5;
+    const cardHeight = Math.max(
+      titleBlockHeight + conceptBlockHeight + storyLines.length * storyLineHeight + padY * 2,
+      34
+    );
+    ensureSpace(cardHeight + 8);
+
+    doc.setDrawColor(...BORDER);
+    doc.setFillColor(...WHITE);
+    doc.roundedRect(margin, y, maxWidth, cardHeight, 6, 6, "S");
+
+    const badgeCx = margin + padX + 8;
+    const badgeCy = y + padY + 5;
+    doc.setFillColor(...METAPHOR_COLOR);
+    doc.circle(badgeCx, badgeCy, 9, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...WHITE);
+    doc.text(String(index + 1), badgeCx, badgeCy + 3, { align: "center" });
+
+    let cursorY = y + padY + 8;
+
+    if (titleLines.length) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...HEADING);
+      doc.text(titleLines, textX, cursorY);
+      cursorY += titleLines.length * 13 + 3;
+    }
+
+    if (conceptLines.length) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.8);
+      doc.setTextColor(...MUTED);
+      doc.text(conceptLines, textX, cursorY);
+      cursorY += conceptLines.length * 11 + 5;
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.8);
+    doc.setTextColor(...BODY);
+    doc.text(storyLines, textX, cursorY);
+
+    y += cardHeight + 8;
+  }
+
+  function addParableCard(item: NormalizedParable, index: number) {
+    const storyText = sanitizeForPdf(item.story);
+    if (!storyText) return;
+    const titleText = sanitizeForPdf(item.title);
+    const lessonText = sanitizeForPdf(item.lesson);
+    const padX = 14;
+    const padY = 10;
+    const badgeSpace = 26;
+    const textX = margin + padX + badgeSpace;
+    const textWidth = maxWidth - padX * 2 - badgeSpace;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    const titleLines = titleText ? doc.splitTextToSize(titleText, textWidth) : [];
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8.8);
+    const lessonLines = lessonText ? doc.splitTextToSize(lessonText, textWidth) : [];
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.8);
+    const storyLines = doc.splitTextToSize(storyText, textWidth);
+
+    const titleBlockHeight = titleLines.length ? titleLines.length * 13 + 3 : 0;
+    const lessonBlockHeight = lessonLines.length ? lessonLines.length * 11 + 5 : 0;
+    const storyLineHeight = 13.5;
+    const cardHeight = Math.max(
+      titleBlockHeight + lessonBlockHeight + storyLines.length * storyLineHeight + padY * 2,
+      34
+    );
+    ensureSpace(cardHeight + 8);
+
+    doc.setDrawColor(...BORDER);
+    doc.setFillColor(...WHITE);
+    doc.roundedRect(margin, y, maxWidth, cardHeight, 6, 6, "S");
+
+    const badgeCx = margin + padX + 8;
+    const badgeCy = y + padY + 5;
+    doc.setFillColor(...PARABLE_COLOR);
+    doc.circle(badgeCx, badgeCy, 9, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...WHITE);
+    doc.text(String(index + 1), badgeCx, badgeCy + 3, { align: "center" });
+
+    let cursorY = y + padY + 8;
+
+    if (titleLines.length) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...HEADING);
+      doc.text(titleLines, textX, cursorY);
+      cursorY += titleLines.length * 13 + 3;
+    }
+
+    if (lessonLines.length) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.8);
+      doc.setTextColor(...MUTED);
+      doc.text(lessonLines, textX, cursorY);
+      cursorY += lessonLines.length * 11 + 5;
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.8);
+    doc.setTextColor(...BODY);
+    doc.text(storyLines, textX, cursorY);
+
+    y += cardHeight + 8;
+  }
+
   // ---- Build document ----
   drawHero();
   drawInputsSummary();
@@ -348,14 +532,14 @@ export function downloadStrategyPdf(data: PdfStrategyData) {
   stories.forEach((item, i) => addStoryCard(item, i));
   y += 10;
 
-  const metaphors = data.metaphors ?? [];
+  const metaphors = normalizeMetaphors(data.metaphors ?? []);
   drawSectionTitle("Metaphors", metaphors.length, METAPHOR_COLOR);
-  metaphors.forEach((item, i) => addNumberedCard(item, i, METAPHOR_COLOR));
+  metaphors.forEach((item, i) => addMetaphorCard(item, i));
   y += 10;
 
-  const parables = data.parables ?? [];
+  const parables = normalizeParables(data.parables ?? []);
   drawSectionTitle("Parables", parables.length, PARABLE_COLOR);
-  parables.forEach((item, i) => addNumberedCard(item, i, PARABLE_COLOR));
+  parables.forEach((item, i) => addParableCard(item, i));
   y += 10;
 
   drawSectionTitle("LinkedIn Posts", data.linkedin_posts.length, LINKEDIN_COLOR);
