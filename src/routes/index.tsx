@@ -40,6 +40,8 @@ import {
   generateContent,
   type GenerateResult,
   type StoryItem,
+  type MetaphorItem,
+  type ParableItem,
 } from "@/lib/generate-content.functions";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -531,8 +533,8 @@ function Results({ data }: { data: GenerateResult }) {
         <TabsContent value="stage2" className="mt-6 space-y-6">
           <Category title="Hooks" description="Opening lines that stop the scroll" icon={Target} items={data.hooks} />
           <StoryCategory items={data.stories} />
-          <Category title="Metaphors" description="Short, memorable comparisons that simplify a core pain point" icon={Shapes} items={data.metaphors} />
-          <Category title="Parables" description="Short illustrative stories that teach a lesson" icon={ScrollText} items={data.parables} />
+          <MetaphorCategory items={data.metaphors} />
+          <ParableCategory items={data.parables} />
         </TabsContent>
         <TabsContent value="stage3" className="mt-6 space-y-6">
           <Category title="LinkedIn Posts" description="Ready to copy and publish" icon={Megaphone} items={data.linkedin_posts} variant="long" />
@@ -578,6 +580,106 @@ function Category({ title, description, icon: Icon, items, variant = "short" }: 
           <li key={i} className={cn("group flex items-start gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary/30 hover:bg-soft-tint/40", variant === "long" && "p-4")}>
             <p className={cn("min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-body", variant === "long" && "text-[15px] leading-7")}>{item}</p>
             <CopyButton text={item} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MetaphorCategory({ items }: { items: MetaphorItem[] }) {
+  const allText = items.map((m) => (m.title ? `${m.title}\n${m.story}` : m.story)).join("\n\n");
+  if (items.length === 0) return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <Shapes className="h-4 w-4 text-primary" />
+        <h3 className="font-display text-base font-semibold text-heading">Metaphors</h3>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">No metaphors returned.</p>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-soft-tint text-primary">
+            <Shapes className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-heading">
+              Metaphors{" "}
+              <span className="ml-1 text-xs font-medium text-muted-foreground">({items.length})</span>
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">Vivid comparisons that simplify a core pain point</p>
+          </div>
+        </div>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-3">
+        {items.map((item, i) => (
+          <li key={i} className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/30 hover:bg-soft-tint/40">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                {item.title && (
+                  <p className="font-display text-sm font-semibold text-heading">{item.title}</p>
+                )}
+                {item.concept && (
+                  <p className="mt-0.5 text-xs italic text-muted-foreground">{item.concept}</p>
+                )}
+                <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-body">{item.story}</p>
+              </div>
+              <CopyButton text={item.title ? `${item.title}\n${item.story}` : item.story} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ParableCategory({ items }: { items: ParableItem[] }) {
+  const allText = items.map((p) => (p.title ? `${p.title}\n${p.story}` : p.story)).join("\n\n");
+  if (items.length === 0) return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <ScrollText className="h-4 w-4 text-primary" />
+        <h3 className="font-display text-base font-semibold text-heading">Parables</h3>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">No parables returned.</p>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-soft-tint text-primary">
+            <ScrollText className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-heading">
+              Parables{" "}
+              <span className="ml-1 text-xs font-medium text-muted-foreground">({items.length})</span>
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">Short illustrative stories that teach a lesson</p>
+          </div>
+        </div>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-3">
+        {items.map((item, i) => (
+          <li key={i} className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/30 hover:bg-soft-tint/40">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                {item.title && (
+                  <p className="font-display text-sm font-semibold text-heading">{item.title}</p>
+                )}
+                {item.lesson && (
+                  <p className="mt-0.5 text-xs italic text-muted-foreground">{item.lesson}</p>
+                )}
+                <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-body">{item.story}</p>
+              </div>
+              <CopyButton text={item.title ? `${item.title}\n${item.story}` : item.story} />
+            </div>
           </li>
         ))}
       </ul>
