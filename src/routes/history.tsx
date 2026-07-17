@@ -34,8 +34,8 @@ interface Generation {
   desires: string[];
   hooks: string[];
   stories: unknown[];
-  metaphors?: string[];
-  parables?: string[];
+  metaphors?: unknown[];
+  parables?: unknown[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -275,8 +275,8 @@ function GenerationCard({
           <OutputSection title="Desires" items={gen.desires} />
           <OutputSection title="Hooks" items={gen.hooks} />
           <StoryOutputSection items={gen.stories} />
-          <OutputSection title="Metaphors" items={gen.metaphors ?? []} />
-          <OutputSection title="Parables" items={gen.parables ?? []} />
+          <MetaphorOutputSection items={gen.metaphors ?? []} />
+          <ParableOutputSection items={gen.parables ?? []} />
           <OutputSection title="LinkedIn Posts" items={gen.linkedin_posts} long />
           <OutputSection title="Facebook Posts" items={gen.facebook_posts} long />
         </div>
@@ -365,6 +365,90 @@ function StoryOutputSection({ items }: { items: unknown[] }) {
             <div className="flex items-start gap-3">
               <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-7 text-body">{s.story}</p>
               <CopyButton text={s.story} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MetaphorOutputSection({ items }: { items: unknown[] }) {
+  if (!items || items.length === 0) return null;
+
+  const metaphors = items.map((item) => {
+    if (typeof item === "object" && item !== null && typeof (item as any).story === "string") {
+      const m = item as any;
+      return { title: m.title ?? "", concept: m.concept ?? "", story: m.story };
+    }
+    if (typeof item === "string" && item.trim().length > 0) {
+      return { title: "", concept: "", story: item };
+    }
+    return { title: "", concept: "", story: String(item) };
+  });
+
+  const allText = metaphors.map((m) => (m.title ? `${m.title}\n${m.story}` : m.story)).join("\n\n");
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          Metaphors <span className="ml-1 font-normal text-muted-foreground">({metaphors.length})</span>
+        </p>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-2">
+        {metaphors.map((m, i) => (
+          <li key={i} className="flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                {m.title && <p className="text-sm font-semibold text-heading">{m.title}</p>}
+                {m.concept && <p className="mt-0.5 text-xs italic text-muted-foreground">{m.concept}</p>}
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7 text-body">{m.story}</p>
+              </div>
+              <CopyButton text={m.title ? `${m.title}\n${m.story}` : m.story} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ParableOutputSection({ items }: { items: unknown[] }) {
+  if (!items || items.length === 0) return null;
+
+  const parables = items.map((item) => {
+    if (typeof item === "object" && item !== null && typeof (item as any).story === "string") {
+      const p = item as any;
+      return { title: p.title ?? "", lesson: p.lesson ?? "", story: p.story };
+    }
+    if (typeof item === "string" && item.trim().length > 0) {
+      return { title: "", lesson: "", story: item };
+    }
+    return { title: "", lesson: "", story: String(item) };
+  });
+
+  const allText = parables.map((p) => (p.title ? `${p.title}\n${p.story}` : p.story)).join("\n\n");
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          Parables <span className="ml-1 font-normal text-muted-foreground">({parables.length})</span>
+        </p>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-2">
+        {parables.map((p, i) => (
+          <li key={i} className="flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                {p.title && <p className="text-sm font-semibold text-heading">{p.title}</p>}
+                {p.lesson && <p className="mt-0.5 text-xs italic text-muted-foreground">{p.lesson}</p>}
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7 text-body">{p.story}</p>
+              </div>
+              <CopyButton text={p.title ? `${p.title}\n${p.story}` : p.story} />
             </div>
           </li>
         ))}
