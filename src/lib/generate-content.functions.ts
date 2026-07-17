@@ -17,6 +17,18 @@ export interface StoryItem {
   story: string;
 }
 
+export interface MetaphorItem {
+  title: string;
+  concept: string;
+  story: string;
+}
+
+export interface ParableItem {
+  title: string;
+  lesson: string;
+  story: string;
+}
+
 export interface GenerateResult {
   avatar: string;
   services_profession: string;
@@ -29,8 +41,8 @@ export interface GenerateResult {
   desires: string[];
   hooks: string[];
   stories: StoryItem[];
-  metaphors: string[];
-  parables: string[];
+  metaphors: MetaphorItem[];
+  parables: ParableItem[];
   linkedin_posts: string[];
   facebook_posts: string[];
 }
@@ -63,6 +75,46 @@ function toStoryArray(value: unknown): StoryItem[] {
       return null;
     })
     .filter((s): s is StoryItem => s !== null);
+}
+
+function toMetaphorArray(value: unknown): MetaphorItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v): MetaphorItem | null => {
+      if (typeof v === "object" && v !== null && typeof (v as any).story === "string") {
+        return {
+          title: typeof (v as any).title === "string" ? (v as any).title : "",
+          concept: typeof (v as any).concept === "string" ? (v as any).concept : "",
+          story: (v as any).story,
+        };
+      }
+      // Fallback: handle plain strings (old flat-list format)
+      if (typeof v === "string" && v.trim().length > 0) {
+        return { title: "", concept: "", story: v };
+      }
+      return null;
+    })
+    .filter((m): m is MetaphorItem => m !== null);
+}
+
+function toParableArray(value: unknown): ParableItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v): ParableItem | null => {
+      if (typeof v === "object" && v !== null && typeof (v as any).story === "string") {
+        return {
+          title: typeof (v as any).title === "string" ? (v as any).title : "",
+          lesson: typeof (v as any).lesson === "string" ? (v as any).lesson : "",
+          story: (v as any).story,
+        };
+      }
+      // Fallback: handle plain strings (old flat-list format)
+      if (typeof v === "string" && v.trim().length > 0) {
+        return { title: "", lesson: "", story: v };
+      }
+      return null;
+    })
+    .filter((p): p is ParableItem => p !== null);
 }
 
 export const generateContent = createServerFn({ method: "POST" })
@@ -119,8 +171,8 @@ export const generateContent = createServerFn({ method: "POST" })
       desires: toStringArray(payload.desires),
       hooks: toStringArray(payload.hooks),
       stories: toStoryArray(payload.stories),
-      metaphors: toStringArray(payload.metaphors),
-      parables: toStringArray(payload.parables),
+      metaphors: toMetaphorArray(payload.metaphors),
+      parables: toParableArray(payload.parables),
       linkedin_posts: toStringArray(payload.linkedin_posts),
       facebook_posts: toStringArray(payload.facebook_posts),
     };
