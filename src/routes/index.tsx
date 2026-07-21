@@ -19,6 +19,7 @@ import {
   Shapes,
   Sparkles,
   Target,
+  Video,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -497,6 +498,10 @@ function LoadingStages() {
 
 function Results({ data }: { data: GenerateResult }) {
   const generatedAt = useMemo(() => { try { return new Date(data.generated_at).toLocaleString(); } catch { return data.generated_at; } }, [data.generated_at]);
+  const videoScripts = useMemo(
+    () => buildVideoScripts(data.fears, data.frustrations, data.dreams, data.desires),
+    [data.fears, data.frustrations, data.dreams, data.desires]
+  );
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -519,10 +524,11 @@ function Results({ data }: { data: GenerateResult }) {
   </Button>
 </div>
       <Tabs defaultValue="stage1" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-secondary p-1">
+        <TabsList className="grid w-full grid-cols-4 bg-secondary p-1">
           <StageTab value="stage1" index={1} label="Audience Psychology" />
           <StageTab value="stage2" index={2} label="Creative Assets" />
           <StageTab value="stage3" index={3} label="Ready to Post" />
+          <StageTab value="stage4" index={4} label="Videos" mobileLabel="Videos" />
         </TabsList>
         <TabsContent value="stage1" className="mt-6 space-y-6">
           <Category title="Fears" description="What keeps them up at night" icon={AlertCircle} items={data.fears} />
@@ -540,17 +546,20 @@ function Results({ data }: { data: GenerateResult }) {
           <Category title="LinkedIn Posts" description="Ready to copy and publish" icon={Megaphone} items={data.linkedin_posts} variant="long" />
           <Category title="Facebook Posts" description="Ready to copy and publish" icon={Megaphone} items={data.facebook_posts} variant="long" />
         </TabsContent>
+        <TabsContent value="stage4" className="mt-6 space-y-6">
+          <VideoScriptCategory items={videoScripts} />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function StageTab({ value, index, label }: { value: string; index: number; label: string }) {
+function StageTab({ value, index, label, mobileLabel }: { value: string; index: number; label: string; mobileLabel?: string }) {
   return (
     <TabsTrigger value={value} className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:text-heading data-[state=active]:shadow-sm">
       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{index}</span>
       <span className="hidden sm:inline">{label}</span>
-      <span className="sm:hidden">Stage {index}</span>
+      <span className="sm:hidden">{mobileLabel ?? `Stage ${index}`}</span>
     </TabsTrigger>
   );
 }
@@ -725,6 +734,89 @@ function StoryCategory({ items }: { items: StoryItem[] }) {
               </p>
               <CopyButton text={item.story} />
             </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// The psychology items are written in third person (describing the avatar:
+// "...without them", "their revenue"). This does a best-effort swap to
+// second person so the item reads naturally after a "Do you...?" question.
+// It's a word-boundary regex, not a rewrite — it catches the common
+// possessive/object pronouns but won't fix every phrasing.
+function toSecondPerson(text: string): string {
+  return text
+    .replace(/\btheir\b/gi, "your")
+    .replace(/\bthemselves\b/gi, "yourself")
+    .replace(/\bthem\b/gi, "you");
+}
+
+// Turns a raw psychology item (e.g. "Losing a client's trust after a
+// billing error — one bad review could undo years of work.") into a
+// fragment that reads naturally after a question stem: lowercases the
+// first letter and drops a trailing sentence-ending punctuation mark.
+function toQuestionFragment(item: string): string {
+  const trimmed = toSecondPerson(item.trim()).replace(/[.?!]+$/, "");
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+}
+
+// Builds sample 4-line video scripts by pairing up one fear, one
+// frustration, one dream, and one desire per script (matched by index),
+// so each script draws from a different angle across the psychology data.
+function buildVideoScripts(fears: string[], frustrations: string[], dreams: string[], desires: string[]): string[] {
+  const count = Math.min(fears.length, frustrations.length, dreams.length, desires.length);
+  const scripts: string[] = [];
+  for (let i = 0; i < count; i++) {
+    scripts.push(
+      [
+        `Do you fear ${toQuestionFragment(fears[i])}?`,
+        `Are you frustrated by ${toQuestionFragment(frustrations[i])}?`,
+        `Do you dream of ${toQuestionFragment(dreams[i])}?`,
+        `Do you really want ${toQuestionFragment(desires[i])}?`,
+      ].join("\n")
+    );
+  }
+  return scripts;
+}
+
+function VideoScriptCategory({ items }: { items: string[] }) {
+  const allText = items.join("\n\n---\n\n");
+  if (items.length === 0) return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <Video className="h-4 w-4 text-primary" />
+        <h3 className="font-display text-base font-semibold text-heading">Video Scripts</h3>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">No video scripts available.</p>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-soft-tint text-primary">
+            <Video className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-heading">
+              Video Scripts{" "}
+              <span className="ml-1 text-xs font-medium text-muted-foreground">({items.length})</span>
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Sample hooks built from a fear, frustration, dream, and desire — read one straight into camera
+            </p>
+          </div>
+        </div>
+        <CopyButton text={allText} label="Copy all" size="sm" variant="outline" />
+      </div>
+      <ul className="space-y-3">
+        {items.map((item, i) => (
+          <li key={i} className="group flex items-start gap-3 rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/30 hover:bg-soft-tint/40">
+            <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] leading-7 text-body">{item}</p>
+            <CopyButton text={item} />
           </li>
         ))}
       </ul>
