@@ -499,16 +499,15 @@ function Field({ id, label, hint, guideSection, children }: { id: string; label:
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span>{hint}</span>
           {guideSection && (
-            <a
-              href={"/guide#" + guideSection}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open the field guide in a new tab"
+            <Link
+              to="/guide"
+              hash={guideSection}
+              title="Open the field guide"
               className="inline-flex items-center gap-1 rounded-md font-medium text-primary no-underline transition-colors hover:text-primary-hover hover:underline underline-offset-2"
             >
               <BookOpen className="h-3 w-3" />
               See guide
-            </a>
+            </Link>
           )}
         </p>
       )}
