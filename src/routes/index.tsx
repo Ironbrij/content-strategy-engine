@@ -67,6 +67,52 @@ const STAGES = [
   { label: "Drafting your posts", icon: Send },
 ] as const;
 
+// Persists the four input fields across navigation (e.g. opening the field
+// guide and coming back) and accidental reloads. sessionStorage is scoped to
+// the current tab, cleared when the tab closes, and never touches the server
+// — so it's safe to read/write per keystroke without an SSR guard issue as
+// long as we check `typeof window` first (this component also renders on
+// the server, where sessionStorage doesn't exist).
+const DRAFT_STORAGE_KEY = "clarify:formDraft:v1";
+
+type FormDraft = {
+  avatar: string;
+  servicesProfession: string;
+  audience: string;
+  persona: string;
+};
+
+const EMPTY_DRAFT: FormDraft = { avatar: "", servicesProfession: "", audience: "", persona: "" };
+
+function loadDraft(): FormDraft {
+  if (typeof window === "undefined") return EMPTY_DRAFT;
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return EMPTY_DRAFT;
+    const parsed = JSON.parse(raw);
+    return {
+      avatar: typeof parsed.avatar === "string" ? parsed.avatar : "",
+      servicesProfession: typeof parsed.servicesProfession === "string" ? parsed.servicesProfession : "",
+      audience: typeof parsed.audience === "string" ? parsed.audience : "",
+      persona: typeof parsed.persona === "string" ? parsed.persona : "",
+    };
+  } catch {
+    // Corrupt JSON, storage disabled, or private-browsing quota issues —
+    // fall back to a blank draft rather than breaking the page.
+    return EMPTY_DRAFT;
+  }
+}
+
+function saveDraft(draft: FormDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // Storage full or disabled (e.g. some private-browsing modes) — losing
+    // the draft-persistence nicety isn't worth surfacing an error for.
+  }
+}
+
 function Page() {
   const generate = useServerFn(generateContent);
   const navigate = useNavigate();
@@ -74,12 +120,18 @@ function Page() {
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [avatar, setAvatar] = useState("");
-  const [servicesProfession, setServicesProfession] = useState("");
-  const [audience, setAudience] = useState("");
-  const [persona, setPersona] = useState("");
+  const [avatar, setAvatar] = useState(() => loadDraft().avatar);
+  const [servicesProfession, setServicesProfession] = useState(() => loadDraft().servicesProfession);
+  const [audience, setAudience] = useState(() => loadDraft().audience);
+  const [persona, setPersona] = useState(() => loadDraft().persona);
   const [historySaveError, setHistorySaveError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
+
+  // Keep the draft in sync as the person types, so navigating to the field
+  // guide (or refreshing) and coming back doesn't lose what they've written.
+  useEffect(() => {
+    saveDraft({ avatar, servicesProfession, audience, persona });
+  }, [avatar, servicesProfession, audience, persona]);
 
   const mutation = useMutation({
     mutationFn: (input: { avatar: string; services_profession: string; audience: string; persona: string }) =>
