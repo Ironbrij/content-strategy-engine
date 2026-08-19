@@ -1,11 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase";
+
+export const GENERATION_LIMIT = 3;
 
 const inputSchema = z.object({
   avatar: z.string().trim().min(1).max(2000),
   services_profession: z.string().trim().min(1).max(500),
   audience: z.string().trim().min(1).max(500),
   persona: z.string().trim().min(1).max(300),
+  access_token: z.string().min(1),
 });
 
 export type GenerateInput = z.infer<typeof inputSchema>;
@@ -45,6 +50,7 @@ export interface GenerateResult {
   parables: ParableItem[];
   linkedin_posts: string[];
   facebook_posts: string[];
+  generations_used: number;
 }
 
 function toStringArray(value: unknown): string[] {
@@ -125,6 +131,28 @@ export const generateContent = createServerFn({ method: "POST" })
       throw new Error("N8N_WEBHOOK_URL is not configured");
     }
 
+    // Reserve a slot before doing any expensive work. This runs as the
+    // signed-in caller (via their access token) and atomically increments
+    // a server-side counter that's independent of the `generations` history
+    // table, so deleting past results from History can't free up a slot.
+    const supabaseServer = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${data.access_token}` } },
+    });
+    const { data: generationsUsed, error: reserveError } = await supabaseServer.rpc(
+      "reserve_generation_slot",
+      { p_limit: GENERATION_LIMIT }
+    );
+    if (reserveError) {
+      if (reserveError.message.includes("generation_limit_reached")) {
+        throw new Error(
+          `You've used all ${GENERATION_LIMIT} of your free generations for this account.`
+        );
+      }
+      console.error("Failed to reserve a generation slot", reserveError.message);
+      throw new Error("Couldn't verify your generation limit. Please try again.");
+    }
+
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -175,5 +203,6 @@ export const generateContent = createServerFn({ method: "POST" })
       parables: toParableArray(payload.parables),
       linkedin_posts: toStringArray(payload.linkedin_posts),
       facebook_posts: toStringArray(payload.facebook_posts),
+      generations_used: generationsUsed as number,
     };
   });

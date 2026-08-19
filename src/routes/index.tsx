@@ -39,6 +39,7 @@ import { CopyButton } from "@/components/copy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   generateContent,
+  GENERATION_LIMIT,
   type GenerateResult,
   type StoryItem,
   type MetaphorItem,
@@ -125,6 +126,7 @@ function Page() {
   const [audience, setAudience] = useState(() => loadDraft().audience);
   const [persona, setPersona] = useState(() => loadDraft().persona);
   const [historySaveError, setHistorySaveError] = useState<string | null>(null);
+  const [generationsUsed, setGenerationsUsed] = useState<number | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   // Keep the draft in sync as the person types, so navigating to the field
@@ -134,9 +136,15 @@ function Page() {
   }, [avatar, servicesProfession, audience, persona]);
 
   const mutation = useMutation({
-    mutationFn: (input: { avatar: string; services_profession: string; audience: string; persona: string }) =>
-      generate({ data: input }),
+    mutationFn: (input: {
+      avatar: string;
+      services_profession: string;
+      audience: string;
+      persona: string;
+      access_token: string;
+    }) => generate({ data: input }),
     onSuccess: async (data, variables) => {
+      setGenerationsUsed(data.generations_used);
       if (!userId) return;
       setHistorySaveError(null);
       const { error } = await supabase.from("generations").insert({
@@ -176,6 +184,11 @@ function Page() {
         setUserEmail(session.user.email ?? null);
         setUserId(session.user.id);
         setAuthChecked(true);
+        supabase
+          .from("generation_usage")
+          .select("used_count")
+          .maybeSingle()
+          .then(({ data }) => setGenerationsUsed(data?.used_count ?? 0));
       }
     });
 
@@ -197,16 +210,24 @@ function Page() {
     navigate({ to: "/sign-in" });
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!avatar.trim() || !servicesProfession.trim() || !audience.trim() || !persona.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate({ to: "/sign-in" });
+      return;
+    }
     mutation.mutate({
       avatar: avatar.trim(),
       services_profession: servicesProfession.trim(),
       audience: audience.trim(),
       persona: persona.trim(),
+      access_token: session.access_token,
     });
   }
+
+  const limitReached = generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
 
   if (!authChecked) {
     return (
@@ -222,18 +243,23 @@ function Page() {
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
-          <InputCard
-            avatar={avatar}
-            setAvatar={setAvatar}
-            servicesProfession={servicesProfession}
-            setServicesProfession={setServicesProfession}
-            audience={audience}
-            setAudience={setAudience}
-            persona={persona}
-            setPersona={setPersona}
-            onSubmit={onSubmit}
-            isPending={mutation.isPending}
-          />
+          {limitReached ? (
+            <LimitReachedCard />
+          ) : (
+            <InputCard
+              avatar={avatar}
+              setAvatar={setAvatar}
+              servicesProfession={servicesProfession}
+              setServicesProfession={setServicesProfession}
+              audience={audience}
+              setAudience={setAudience}
+              persona={persona}
+              setPersona={setPersona}
+              onSubmit={onSubmit}
+              isPending={mutation.isPending}
+              generationsUsed={generationsUsed}
+            />
+          )}
           {mutation.isError && (
             <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -391,9 +417,10 @@ interface InputCardProps {
   persona: string; setPersona: (v: string) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isPending: boolean;
+  generationsUsed: number | null;
 }
 
-function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending }: InputCardProps) {
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed }: InputCardProps) {
   function loadExample() {
     setAvatar(EXAMPLE.avatar);
     setServicesProfession(EXAMPLE.services);
@@ -486,7 +513,31 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
           )}
         </Button>
       </div>
+      {generationsUsed !== null && (
+        <p className="mt-3 text-center text-xs text-muted-foreground sm:text-right">
+          {Math.max(GENERATION_LIMIT - generationsUsed, 0)} of {GENERATION_LIMIT} free generations remaining
+        </p>
+      )}
     </form>
+  );
+}
+
+function LimitReachedCard() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 text-center sm:p-8">
+      <Sparkles className="mx-auto h-6 w-6 text-primary" />
+      <p className="mt-3 font-display text-base font-semibold text-heading">
+        You've used all {GENERATION_LIMIT} free generations
+      </p>
+      <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+        This account has reached its limit of {GENERATION_LIMIT} content strategy generations. Your past results are
+        still available in{" "}
+        <Link to="/history" className="font-medium text-primary underline-offset-2 hover:underline">
+          History
+        </Link>
+        .
+      </p>
+    </div>
   );
 }
 
