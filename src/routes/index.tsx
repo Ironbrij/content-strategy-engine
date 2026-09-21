@@ -10,6 +10,7 @@ import {
   Circle,
   CreditCard,
   Crown,
+  Ticket,
   Flame,
   Heart,
   Loader2,
@@ -50,6 +51,8 @@ import {
 import {
   createCheckoutSession,
   createPortalSession,
+  FREE_PRICE_LABEL,
+  PRO_PRICE_CADENCE,
   PRO_PRICE_LABEL,
 } from "@/lib/billing.functions";
 import { supabase } from "@/lib/supabase";
@@ -121,6 +124,18 @@ function saveDraft(draft: FormDraft) {
   }
 }
 
+// redeem_coupon() raises bare tokens rather than prose, so the wording lives
+// here next to the UI that shows it.
+function couponErrorMessage(raw: string): string {
+  if (raw.includes("coupon_not_found")) return "That code isn't valid. Check for typos.";
+  if (raw.includes("coupon_already_redeemed")) return "You've already used that code.";
+  if (raw.includes("coupon_exhausted")) return "That code has been fully claimed.";
+  if (raw.includes("coupon_expired")) return "That code has expired.";
+  if (raw.includes("coupon_inactive")) return "That code is no longer active.";
+  if (raw.includes("not_authenticated")) return "Please sign in and try again.";
+  return "Couldn't apply that code. Please try again.";
+}
+
 // Mirrors public.has_active_subscription() in
 // supabase/migrations/20260921000000_stripe_subscriptions.sql. This only
 // decides what the page shows -- the cap itself is still enforced server-side
@@ -149,9 +164,16 @@ function Page() {
   const [persona, setPersona] = useState(() => loadDraft().persona);
   const [historySaveError, setHistorySaveError] = useState<string | null>(null);
   const [generationsUsed, setGenerationsUsed] = useState<number | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // Pro access from either source (subscription or coupon) -- this is what
+  // lifts the cap. hasStripeSubscription is narrower: it only decides whether
+  // to offer the billing portal, which a coupon user has nothing to open.
+  const [hasProAccess, setHasProAccess] = useState(false);
+  const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingPending, setBillingPending] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPending, setCouponPending] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [returnedFromCheckout] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -163,14 +185,22 @@ function Page() {
   // the Stripe entitlement. Returns whether the account is Pro, so the
   // post-checkout poll below can stop as soon as the webhook lands.
   const refreshEntitlement = useCallback(async () => {
-    const [{ data: usage }, { data: subscriptionRow }] = await Promise.all([
+    const [{ data: usage }, { data: proAccess }, { data: subscriptionRow }] = await Promise.all([
       supabase.from("generation_usage").select("used_count").maybeSingle(),
+      // One question, answered server-side: subscription or coupon, either way.
+      supabase.rpc("has_pro_access"),
       supabase.from("subscriptions").select("status, current_period_end").maybeSingle(),
     ]);
     setGenerationsUsed(usage?.used_count ?? 0);
-    const entitled = isEntitled(subscriptionRow);
-    setIsSubscribed(entitled);
-    return entitled;
+
+    const stripeActive = isEntitled(subscriptionRow);
+    setHasStripeSubscription(stripeActive);
+
+    // Falls back to the subscription row if has_pro_access() isn't there yet,
+    // so the app still works between deploying and running the migration.
+    const pro = proAccess === true || stripeActive;
+    setHasProAccess(pro);
+    return pro;
   }, []);
 
   // Keep the draft in sync as the person types, so navigating to the field
@@ -309,6 +339,28 @@ function Page() {
     }
   }
 
+  async function handleRedeemCoupon(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const code = couponCode.trim();
+    if (!code || couponPending) return;
+
+    setCouponError(null);
+    setCouponPending(true);
+    try {
+      const { error } = await supabase.rpc("redeem_coupon", { p_code: code });
+      if (error) {
+        setCouponError(couponErrorMessage(error.message));
+        return;
+      }
+      setCouponCode("");
+      // Re-read rather than assuming: the RPC is the authority on what the
+      // code actually granted.
+      await refreshEntitlement();
+    } finally {
+      setCouponPending(false);
+    }
+  }
+
   const handleUpgrade = () =>
     redirectToStripe(startCheckout, "Couldn't open checkout. Please try again.");
 
@@ -333,7 +385,7 @@ function Page() {
   }
 
   const limitReached =
-    !isSubscribed && generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
+    !hasProAccess && generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
 
   if (!authChecked) {
     return (
@@ -348,14 +400,22 @@ function Page() {
       <Header
         userEmail={userEmail}
         onSignOut={handleSignOut}
-        isSubscribed={isSubscribed}
+        isSubscribed={hasStripeSubscription}
         onManageBilling={handleManageBilling}
       />
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
           {limitReached ? (
-            <UpgradeCard onUpgrade={handleUpgrade} isPending={billingPending} />
+            <UpgradeCard
+              onUpgrade={handleUpgrade}
+              isPending={billingPending}
+              couponCode={couponCode}
+              setCouponCode={setCouponCode}
+              onRedeemCoupon={handleRedeemCoupon}
+              couponPending={couponPending}
+              couponError={couponError}
+            />
           ) : (
             <InputCard
               avatar={avatar}
@@ -369,7 +429,7 @@ function Page() {
               onSubmit={onSubmit}
               isPending={mutation.isPending}
               generationsUsed={generationsUsed}
-              isSubscribed={isSubscribed}
+              hasProAccess={hasProAccess}
             />
           )}
           {billingError && (
@@ -558,10 +618,10 @@ interface InputCardProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isPending: boolean;
   generationsUsed: number | null;
-  isSubscribed: boolean;
+  hasProAccess: boolean;
 }
 
-function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed, isSubscribed }: InputCardProps) {
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed, hasProAccess }: InputCardProps) {
   function loadExample() {
     setAvatar(EXAMPLE.avatar);
     setServicesProfession(EXAMPLE.services);
@@ -654,7 +714,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
           )}
         </Button>
       </div>
-      {isSubscribed ? (
+      {hasProAccess ? (
         <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-primary sm:justify-end">
           <Crown className="h-3.5 w-3.5" />
           Pro - unlimited generations
@@ -670,56 +730,156 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
   );
 }
 
-function UpgradeCard({ onUpgrade, isPending }: { onUpgrade: () => void; isPending: boolean }) {
+function UpgradeCard({
+  onUpgrade,
+  isPending,
+  couponCode,
+  setCouponCode,
+  onRedeemCoupon,
+  couponPending,
+  couponError,
+}: {
+  onUpgrade: () => void;
+  isPending: boolean;
+  couponCode: string;
+  setCouponCode: (v: string) => void;
+  onRedeemCoupon: (e: React.FormEvent<HTMLFormElement>) => void;
+  couponPending: boolean;
+  couponError: string | null;
+}) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 text-center sm:p-8">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-soft-tint">
-        <Crown className="h-5 w-5 text-primary" />
+    <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
+      <div className="text-center">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-soft-tint">
+          <Crown className="h-5 w-5 text-primary" />
+        </div>
+        <p className="mt-4 font-display text-base font-semibold text-heading">
+          You've used all {GENERATION_LIMIT} free generations
+        </p>
+        <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+          Everything you've already generated stays available in{" "}
+          <Link to="/history" className="font-medium text-primary underline-offset-2 hover:underline">
+            History
+          </Link>
+          .
+        </p>
       </div>
-      <p className="mt-4 font-display text-base font-semibold text-heading">
-        You've used all {GENERATION_LIMIT} free generations
-      </p>
-      <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-        Upgrade to Pro for unlimited content strategies
-        {PRO_PRICE_LABEL ? ` - ${PRO_PRICE_LABEL}` : ""}. Everything you've already generated stays
-        available in{" "}
-        <Link to="/history" className="font-medium text-primary underline-offset-2 hover:underline">
-          History
-        </Link>
-        .
-      </p>
-      <ul className="mx-auto mt-5 grid max-w-sm gap-2 text-left text-sm text-body">
-        {[
-          "Unlimited content strategy generations",
-          "Full history, PDF export and copy tools",
-          "Cancel anytime from your billing portal",
-        ].map((benefit) => (
-          <li key={benefit} className="flex items-start gap-2">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <span>{benefit}</span>
-          </li>
-        ))}
-      </ul>
-      <Button
-        onClick={onUpgrade}
-        disabled={isPending}
-        className="mt-6 h-11 w-full bg-primary px-6 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary-hover hover:shadow-md active:scale-[0.99] disabled:opacity-70 sm:w-auto"
-      >
-        {isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Opening secure checkout...
-          </>
-        ) : (
-          <>
-            Upgrade to Pro
-            <Sparkles className="ml-2 h-4 w-4" />
-          </>
-        )}
-      </Button>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Secure checkout by Stripe. Cancel anytime.
-      </p>
+
+      <div className="mt-7 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-background p-5">
+          <p className="font-display text-sm font-semibold text-heading">Free</p>
+          <p className="mt-2 font-display text-2xl font-extrabold text-heading">
+            {FREE_PRICE_LABEL}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Your current plan</p>
+          <ul className="mt-4 grid gap-2 text-sm text-body">
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <span>{GENERATION_LIMIT} generations, used up</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <span>History, PDF export and copy tools</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="rounded-lg border-2 border-primary bg-soft-tint/30 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-display text-sm font-semibold text-heading">Pro</p>
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+              Unlimited
+            </span>
+          </div>
+          <p className="mt-2 font-display text-2xl font-extrabold text-heading">
+            {PRO_PRICE_LABEL}
+            <span className="ml-1 text-xs font-medium text-muted-foreground">
+              {PRO_PRICE_CADENCE}
+            </span>
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Cancel anytime</p>
+          <ul className="mt-4 grid gap-2 text-sm text-body">
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>Unlimited content strategy generations</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>Everything in Free</span>
+            </li>
+          </ul>
+          <Button
+            onClick={onUpgrade}
+            disabled={isPending}
+            className="mt-5 h-11 w-full bg-primary px-6 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary-hover hover:shadow-md active:scale-[0.99] disabled:opacity-70"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Opening secure checkout...
+              </>
+            ) : (
+              <>
+                Upgrade to Pro
+                <Sparkles className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Secure checkout by Stripe
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-7 border-t border-border pt-6">
+        <form onSubmit={onRedeemCoupon} className="mx-auto max-w-md">
+          <Label
+            htmlFor="coupon"
+            className="flex items-center justify-center gap-1.5 font-display text-sm font-semibold text-heading"
+          >
+            <Ticket className="h-4 w-4 text-primary" />
+            Have a coupon code?
+          </Label>
+          <p className="mt-1 text-center text-xs text-muted-foreground">
+            Redeem it for Pro access - no payment needed.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Input
+              id="coupon"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="CLARIFY-XXXX-XXXX"
+              maxLength={64}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              disabled={couponPending}
+              className="h-11 flex-1 px-4 font-mono tracking-wide placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/60"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={couponPending || !couponCode.trim()}
+              className="h-11 px-6 font-semibold disabled:opacity-60"
+            >
+              {couponPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                "Apply"
+              )}
+            </Button>
+          </div>
+          {couponError && (
+            <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {couponError}
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

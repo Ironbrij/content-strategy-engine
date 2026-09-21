@@ -8,12 +8,13 @@ const inputSchema = z.object({
   access_token: z.string().min(1),
 });
 
-// Optional, display-only: set VITE_PRO_PRICE_LABEL (e.g. "$29/mo") to show the
-// price on the upgrade card. Left unset, the card stays priceless and Stripe
-// Checkout is the first place the amount appears -- which is always correct,
-// just one click later.
-export const PRO_PRICE_LABEL: string | undefined =
-  import.meta.env?.VITE_PRO_PRICE_LABEL || undefined;
+// Display-only labels for the plan cards. These do NOT set what anyone is
+// charged -- Stripe does, from STRIPE_PRICE_ID. Change the price there (or via
+// scripts/setup-stripe.mjs) and mirror it here, or override with
+// VITE_PRO_PRICE_LABEL / VITE_PRO_PRICE_CADENCE.
+export const FREE_PRICE_LABEL = "$0";
+export const PRO_PRICE_LABEL: string = import.meta.env?.VITE_PRO_PRICE_LABEL || "$47";
+export const PRO_PRICE_CADENCE: string = import.meta.env?.VITE_PRO_PRICE_CADENCE || "per month";
 
 // Return URLs must not come from the client: a caller-supplied origin would
 // turn Checkout into an open redirect. APP_URL is the deployed origin, e.g.
