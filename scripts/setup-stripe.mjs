@@ -247,9 +247,12 @@ if (webhookSecret) {
 }
 console.log(`  APP_URL=${APP_URL}`);
 console.log(`  SUPABASE_SERVICE_ROLE_KEY=<from Supabase project settings -> API>`);
-console.log("\nStill to do by hand:");
-console.log("  - run supabase/migrations/20260921000000_stripe_subscriptions.sql");
-console.log("    in the Supabase SQL Editor");
+console.log("\nStill to do by hand, in the Supabase SQL Editor:");
+console.log("  1. migrations/20260819000000_generation_usage_limit.sql");
+console.log("  2. migrations/20260921000000_stripe_subscriptions.sql");
+console.log("  3. migrations/20260921010000_coupon_access.sql");
+console.log("     run in order - each one replaces the previous limiter");
+console.log("  4. your coupon codes INSERT, if you want codes");
 console.log("-".repeat(68));
 if (webhookSecret) {
   console.log("\nThe signing secret above is shown once. Store it now; don't commit it.");
