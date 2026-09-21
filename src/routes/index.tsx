@@ -50,7 +50,6 @@ import {
 } from "@/lib/generate-content.functions";
 import {
   createCheckoutSession,
-  createPortalSession,
   FREE_PRICE_LABEL,
   PRO_PRICE_CADENCE,
   PRO_PRICE_LABEL,
@@ -152,7 +151,6 @@ function isEntitled(
 function Page() {
   const generate = useServerFn(generateContent);
   const startCheckout = useServerFn(createCheckoutSession);
-  const openBillingPortal = useServerFn(createPortalSession);
   const navigate = useNavigate();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -164,11 +162,10 @@ function Page() {
   const [persona, setPersona] = useState(() => loadDraft().persona);
   const [historySaveError, setHistorySaveError] = useState<string | null>(null);
   const [generationsUsed, setGenerationsUsed] = useState<number | null>(null);
-  // Pro access from either source (subscription or coupon) -- this is what
-  // lifts the cap. hasStripeSubscription is narrower: it only decides whether
-  // to offer the billing portal, which a coupon user has nothing to open.
+  // Pro access from either source, subscription or coupon. The distinction
+  // between the two only matters on the subscription page, which asks for
+  // itself -- here all that matters is whether the cap applies.
   const [hasProAccess, setHasProAccess] = useState(false);
-  const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingPending, setBillingPending] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -193,12 +190,9 @@ function Page() {
     ]);
     setGenerationsUsed(usage?.used_count ?? 0);
 
-    const stripeActive = isEntitled(subscriptionRow);
-    setHasStripeSubscription(stripeActive);
-
     // Falls back to the subscription row if has_pro_access() isn't there yet,
     // so the app still works between deploying and running the migration.
-    const pro = proAccess === true || stripeActive;
+    const pro = proAccess === true || isEntitled(subscriptionRow);
     setHasProAccess(pro);
     return pro;
   }, []);
@@ -364,9 +358,6 @@ function Page() {
   const handleUpgrade = () =>
     redirectToStripe(startCheckout, "Couldn't open checkout. Please try again.");
 
-  const handleManageBilling = () =>
-    redirectToStripe(openBillingPortal, "Couldn't open the billing portal. Please try again.");
-
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!avatar.trim() || !servicesProfession.trim() || !audience.trim() || !persona.trim()) return;
@@ -397,12 +388,7 @@ function Page() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header
-        userEmail={userEmail}
-        onSignOut={handleSignOut}
-        isSubscribed={hasStripeSubscription}
-        onManageBilling={handleManageBilling}
-      />
+      <Header userEmail={userEmail} onSignOut={handleSignOut} isPro={hasProAccess} />
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
@@ -485,13 +471,11 @@ function Page() {
 function Header({
   userEmail,
   onSignOut,
-  isSubscribed,
-  onManageBilling,
+  isPro,
 }: {
   userEmail: string | null;
   onSignOut: () => void;
-  isSubscribed: boolean;
-  onManageBilling: () => void;
+  isPro: boolean;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -531,15 +515,17 @@ function Header({
                 {userEmail}
               </span>
             )}
-            {isSubscribed && (
-              <button
-                onClick={onManageBilling}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
-              >
+            <Link
+              to="/subscription"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
+            >
+              {isPro ? (
+                <Crown className="h-3.5 w-3.5 text-primary" />
+              ) : (
                 <CreditCard className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Billing</span>
-              </button>
-            )}
+              )}
+              <span className="hidden sm:inline">{isPro ? "Pro" : "Plan"}</span>
+            </Link>
             <Link
               to="/history"
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
