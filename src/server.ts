@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { STRIPE_WEBHOOK_PATH, handleStripeWebhook } from "./lib/stripe-webhook";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -39,6 +40,19 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // Stripe's webhook is answered here, ahead of the SSR handler, so that
+    // signature verification reads the exact bytes Stripe signed. It also
+    // needs plain-text errors rather than the HTML page below, which is why
+    // it sits outside the SSR try/catch.
+    if (new URL(request.url).pathname === STRIPE_WEBHOOK_PATH) {
+      try {
+        return await handleStripeWebhook(request);
+      } catch (error) {
+        console.error("Stripe webhook entry failed", error);
+        return new Response("Webhook handler failed", { status: 500 });
+      }
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

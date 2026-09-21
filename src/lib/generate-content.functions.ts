@@ -146,7 +146,7 @@ export const generateContent = createServerFn({ method: "POST" })
     if (reserveError) {
       if (reserveError.message.includes("generation_limit_reached")) {
         throw new Error(
-          `You've used all ${GENERATION_LIMIT} of your free generations for this account.`
+          `You've used all ${GENERATION_LIMIT} free generations for this account. Upgrade to Pro for unlimited generations.`
         );
       }
       console.error("Failed to reserve a generation slot", reserveError.message);

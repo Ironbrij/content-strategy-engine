@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
   Brain,
   CheckCircle2,
   Circle,
+  CreditCard,
+  Crown,
   Flame,
   Heart,
   Loader2,
@@ -45,6 +47,11 @@ import {
   type MetaphorItem,
   type ParableItem,
 } from "@/lib/generate-content.functions";
+import {
+  createCheckoutSession,
+  createPortalSession,
+  PRO_PRICE_LABEL,
+} from "@/lib/billing.functions";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { downloadStrategyPdf } from "@/lib/pdf-export";
@@ -114,8 +121,23 @@ function saveDraft(draft: FormDraft) {
   }
 }
 
+// Mirrors public.has_active_subscription() in
+// supabase/migrations/20260921000000_stripe_subscriptions.sql. This only
+// decides what the page shows -- the cap itself is still enforced server-side
+// by reserve_generation_slot(), so a tampered client gains nothing.
+function isEntitled(
+  row: { status?: string | null; current_period_end?: string | null } | null,
+): boolean {
+  if (!row?.status) return false;
+  if (row.status !== "active" && row.status !== "trialing") return false;
+  if (!row.current_period_end) return true;
+  return new Date(row.current_period_end).getTime() > Date.now();
+}
+
 function Page() {
   const generate = useServerFn(generateContent);
+  const startCheckout = useServerFn(createCheckoutSession);
+  const openBillingPortal = useServerFn(createPortalSession);
   const navigate = useNavigate();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -127,7 +149,29 @@ function Page() {
   const [persona, setPersona] = useState(() => loadDraft().persona);
   const [historySaveError, setHistorySaveError] = useState<string | null>(null);
   const [generationsUsed, setGenerationsUsed] = useState<number | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingPending, setBillingPending] = useState(false);
+  const [returnedFromCheckout] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("checkout") === "success",
+  );
   const resultsRef = useRef<HTMLDivElement | null>(null);
+
+  // Reads the two rows that decide what this page allows: lifetime usage and
+  // the Stripe entitlement. Returns whether the account is Pro, so the
+  // post-checkout poll below can stop as soon as the webhook lands.
+  const refreshEntitlement = useCallback(async () => {
+    const [{ data: usage }, { data: subscriptionRow }] = await Promise.all([
+      supabase.from("generation_usage").select("used_count").maybeSingle(),
+      supabase.from("subscriptions").select("status, current_period_end").maybeSingle(),
+    ]);
+    setGenerationsUsed(usage?.used_count ?? 0);
+    const entitled = isEntitled(subscriptionRow);
+    setIsSubscribed(entitled);
+    return entitled;
+  }, []);
 
   // Keep the draft in sync as the person types, so navigating to the field
   // guide (or refreshing) and coming back doesn't lose what they've written.
@@ -184,11 +228,7 @@ function Page() {
         setUserEmail(session.user.email ?? null);
         setUserId(session.user.id);
         setAuthChecked(true);
-        supabase
-          .from("generation_usage")
-          .select("used_count")
-          .maybeSingle()
-          .then(({ data }) => setGenerationsUsed(data?.used_count ?? 0));
+        void refreshEntitlement();
       }
     });
 
@@ -197,7 +237,7 @@ function Page() {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, refreshEntitlement]);
 
   useEffect(() => {
     if (mutation.isSuccess && resultsRef.current) {
@@ -205,10 +245,75 @@ function Page() {
     }
   }, [mutation.isSuccess]);
 
+  // Stripe redirects back the instant payment succeeds, which regularly beats
+  // the webhook that records the entitlement. Poll for a few seconds rather
+  // than showing someone who just paid that they are still capped.
+  useEffect(() => {
+    if (!authChecked || !returnedFromCheckout) return;
+
+    // Drop the query param so a refresh doesn't replay this.
+    window.history.replaceState({}, "", window.location.pathname);
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      const entitled = await refreshEntitlement();
+      if (cancelled || entitled) return;
+      attempts += 1;
+      if (attempts >= 6) {
+        setBillingError(
+          "Your payment went through, but Stripe hasn't confirmed it with us yet. Refresh in a moment -- you won't be charged again.",
+        );
+        return;
+      }
+      timer = window.setTimeout(poll, 1500);
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [authChecked, returnedFromCheckout, refreshEntitlement]);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     navigate({ to: "/sign-in" });
   }
+
+  // Both of these hand off to a Stripe-hosted page, so on success the browser
+  // leaves this app entirely -- deliberately leaving billingPending true so the
+  // button stays disabled instead of flashing back during the redirect.
+  async function redirectToStripe(
+    create: (args: { data: { access_token: string } }) => Promise<{ url: string }>,
+    fallback: string,
+  ) {
+    setBillingError(null);
+    setBillingPending(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        navigate({ to: "/sign-in" });
+        return;
+      }
+      const { url } = await create({ data: { access_token: session.access_token } });
+      window.location.href = url;
+    } catch (error) {
+      setBillingError((error as Error)?.message ?? fallback);
+      setBillingPending(false);
+    }
+  }
+
+  const handleUpgrade = () =>
+    redirectToStripe(startCheckout, "Couldn't open checkout. Please try again.");
+
+  const handleManageBilling = () =>
+    redirectToStripe(openBillingPortal, "Couldn't open the billing portal. Please try again.");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -227,7 +332,8 @@ function Page() {
     });
   }
 
-  const limitReached = generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
+  const limitReached =
+    !isSubscribed && generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
 
   if (!authChecked) {
     return (
@@ -239,12 +345,17 @@ function Page() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header userEmail={userEmail} onSignOut={handleSignOut} />
+      <Header
+        userEmail={userEmail}
+        onSignOut={handleSignOut}
+        isSubscribed={isSubscribed}
+        onManageBilling={handleManageBilling}
+      />
       <main className="mx-auto w-full max-w-5xl px-5 pb-24 pt-10 sm:px-8">
         <Hero />
         <section className="mt-10">
           {limitReached ? (
-            <LimitReachedCard />
+            <UpgradeCard onUpgrade={handleUpgrade} isPending={billingPending} />
           ) : (
             <InputCard
               avatar={avatar}
@@ -258,7 +369,17 @@ function Page() {
               onSubmit={onSubmit}
               isPending={mutation.isPending}
               generationsUsed={generationsUsed}
+              isSubscribed={isSubscribed}
             />
+          )}
+          {billingError && (
+            <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-medium">Billing</p>
+                <p className="text-destructive/80">{billingError}</p>
+              </div>
+            </div>
           )}
           {mutation.isError && (
             <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -301,7 +422,17 @@ function Page() {
   );
 }
 
-function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut: () => void }) {
+function Header({
+  userEmail,
+  onSignOut,
+  isSubscribed,
+  onManageBilling,
+}: {
+  userEmail: string | null;
+  onSignOut: () => void;
+  isSubscribed: boolean;
+  onManageBilling: () => void;
+}) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -339,6 +470,15 @@ function Header({ userEmail, onSignOut }: { userEmail: string | null; onSignOut:
               <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground md:block" title={userEmail}>
                 {userEmail}
               </span>
+            )}
+            {isSubscribed && (
+              <button
+                onClick={onManageBilling}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:px-3"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Billing</span>
+              </button>
             )}
             <Link
               to="/history"
@@ -418,9 +558,10 @@ interface InputCardProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isPending: boolean;
   generationsUsed: number | null;
+  isSubscribed: boolean;
 }
 
-function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed }: InputCardProps) {
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed, isSubscribed }: InputCardProps) {
   function loadExample() {
     setAvatar(EXAMPLE.avatar);
     setServicesProfession(EXAMPLE.services);
@@ -513,29 +654,71 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
           )}
         </Button>
       </div>
-      {generationsUsed !== null && (
-        <p className="mt-3 text-center text-xs text-muted-foreground sm:text-right">
-          {Math.max(GENERATION_LIMIT - generationsUsed, 0)} of {GENERATION_LIMIT} free generations remaining
+      {isSubscribed ? (
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-primary sm:justify-end">
+          <Crown className="h-3.5 w-3.5" />
+          Pro - unlimited generations
         </p>
+      ) : (
+        generationsUsed !== null && (
+          <p className="mt-3 text-center text-xs text-muted-foreground sm:text-right">
+            {Math.max(GENERATION_LIMIT - generationsUsed, 0)} of {GENERATION_LIMIT} free generations remaining
+          </p>
+        )
       )}
     </form>
   );
 }
 
-function LimitReachedCard() {
+function UpgradeCard({ onUpgrade, isPending }: { onUpgrade: () => void; isPending: boolean }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 text-center sm:p-8">
-      <Sparkles className="mx-auto h-6 w-6 text-primary" />
-      <p className="mt-3 font-display text-base font-semibold text-heading">
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-soft-tint">
+        <Crown className="h-5 w-5 text-primary" />
+      </div>
+      <p className="mt-4 font-display text-base font-semibold text-heading">
         You've used all {GENERATION_LIMIT} free generations
       </p>
       <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-        This account has reached its limit of {GENERATION_LIMIT} content strategy generations. Your past results are
-        still available in{" "}
+        Upgrade to Pro for unlimited content strategies
+        {PRO_PRICE_LABEL ? ` - ${PRO_PRICE_LABEL}` : ""}. Everything you've already generated stays
+        available in{" "}
         <Link to="/history" className="font-medium text-primary underline-offset-2 hover:underline">
           History
         </Link>
         .
+      </p>
+      <ul className="mx-auto mt-5 grid max-w-sm gap-2 text-left text-sm text-body">
+        {[
+          "Unlimited content strategy generations",
+          "Full history, PDF export and copy tools",
+          "Cancel anytime from your billing portal",
+        ].map((benefit) => (
+          <li key={benefit} className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span>{benefit}</span>
+          </li>
+        ))}
+      </ul>
+      <Button
+        onClick={onUpgrade}
+        disabled={isPending}
+        className="mt-6 h-11 w-full bg-primary px-6 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary-hover hover:shadow-md active:scale-[0.99] disabled:opacity-70 sm:w-auto"
+      >
+        {isPending ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Opening secure checkout...
+          </>
+        ) : (
+          <>
+            Upgrade to Pro
+            <Sparkles className="ml-2 h-4 w-4" />
+          </>
+        )}
+      </Button>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Secure checkout by Stripe. Cancel anytime.
       </p>
     </div>
   );
