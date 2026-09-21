@@ -21,6 +21,8 @@
  * deployed, not just in a local .env.
  */
 
+import { writeFileSync } from "node:fs";
+
 const API = "https://api.stripe.com/v1";
 
 const SECRET_KEY = process.env.STRIPE_SECRET_KEY;
@@ -35,6 +37,9 @@ const PRODUCT_NAME = process.env.PRODUCT_NAME ?? "Clarify Pro";
 const LOOKUP_KEY = process.env.PRICE_LOOKUP_KEY ?? "clarify_pro";
 
 const RECREATE_WEBHOOK = process.argv.includes("--recreate-webhook");
+
+// Secrets land here rather than in the terminal. Gitignored.
+const OUT_FILE = "stripe-env.local";
 
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
@@ -240,21 +245,34 @@ console.log("\n" + "-".repeat(68));
 console.log("Set these where the app is deployed:\n");
 console.log(`  STRIPE_SECRET_KEY=${SECRET_KEY.slice(0, 11)}...   (the key you just used)`);
 console.log(`  STRIPE_PRICE_ID=${price.id}`);
-if (webhookSecret) {
-  console.log(`  STRIPE_WEBHOOK_SECRET=${webhookSecret}`);
-} else {
-  console.log(`  STRIPE_WEBHOOK_SECRET=<unchanged - see step 3>`);
-}
+console.log(
+  `  STRIPE_WEBHOOK_SECRET=${webhookSecret ? "<see " + OUT_FILE + ">" : "<unchanged - see step 3>"}`,
+);
 console.log(`  APP_URL=${APP_URL}`);
 console.log(`  SUPABASE_SERVICE_ROLE_KEY=<from Supabase project settings -> API>`);
-console.log("\nStill to do by hand, in the Supabase SQL Editor:");
-console.log("  1. migrations/20260819000000_generation_usage_limit.sql");
-console.log("  2. migrations/20260921000000_stripe_subscriptions.sql");
-console.log("  3. migrations/20260921010000_coupon_access.sql");
-console.log("     run in order - each one replaces the previous limiter");
-console.log("  4. your coupon codes INSERT, if you want codes");
+
+// The signing secret is deliberately NOT printed. Terminal output gets copied
+// into chats and tickets wholesale, and a leaked whsec_ lets anyone forge
+// webhooks at a public endpoint and grant themselves a paid plan. Writing it
+// to a gitignored file keeps it out of scrollback while still handing it over.
+if (webhookSecret) {
+  const contents = [
+    "# Written by scripts/setup-stripe.mjs. Gitignored -- do not commit or paste.",
+    `STRIPE_SECRET_KEY=${SECRET_KEY}`,
+    `STRIPE_PRICE_ID=${price.id}`,
+    `STRIPE_WEBHOOK_SECRET=${webhookSecret}`,
+    `APP_URL=${APP_URL}`,
+    "SUPABASE_SERVICE_ROLE_KEY=",
+    "",
+  ].join("\n");
+  writeFileSync(OUT_FILE, contents, { encoding: "utf8" });
+}
 console.log("-".repeat(68));
 if (webhookSecret) {
-  console.log("\nThe signing secret above is shown once. Store it now; don't commit it.");
+  console.log(`\nThe new signing secret was written to ${OUT_FILE}`);
+  console.log("Open that file, copy the values into your host's env settings, then");
+  console.log("delete it. Stripe only reveals a signing secret once.");
+} else {
+  console.log("\nThe webhook was left alone, so its signing secret is unchanged.");
 }
 console.log();
