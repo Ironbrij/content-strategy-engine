@@ -747,6 +747,11 @@ function UpgradeCard({
   couponPending: boolean;
   couponError: string | null;
 }) {
+  // Presentation state only, so it stays local. The coupon lives inside the Pro
+  // column on purpose: it grants this plan, so it belongs to this plan rather
+  // than floating under both as if it applied to Free too.
+  const [couponOpen, setCouponOpen] = useState(false);
+
   return (
     <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
       <div className="text-center">
@@ -765,7 +770,7 @@ function UpgradeCard({
         </p>
       </div>
 
-      <div className="mt-7 grid gap-4 sm:grid-cols-2">
+      <div className="mt-7 grid items-start gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-border bg-background p-5">
           <p className="font-display text-sm font-semibold text-heading">Free</p>
           <p className="mt-2 font-display text-2xl font-extrabold text-heading">
@@ -828,57 +833,67 @@ function UpgradeCard({
           <p className="mt-2 text-center text-xs text-muted-foreground">
             Secure checkout by Stripe
           </p>
-        </div>
-      </div>
 
-      <div className="mt-7 border-t border-border pt-6">
-        <form onSubmit={onRedeemCoupon} className="mx-auto max-w-md">
-          <Label
-            htmlFor="coupon"
-            className="flex items-center justify-center gap-1.5 font-display text-sm font-semibold text-heading"
-          >
-            <Ticket className="h-4 w-4 text-primary" />
-            Have a coupon code?
-          </Label>
-          <p className="mt-1 text-center text-xs text-muted-foreground">
-            Redeem it for Pro access - no payment needed.
-          </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="coupon"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              placeholder="CLARIFY-XXXX-XXXX"
-              maxLength={64}
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              disabled={couponPending}
-              className="h-11 flex-1 px-4 font-mono tracking-wide placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/60"
-            />
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={couponPending || !couponCode.trim()}
-              className="h-11 px-6 font-semibold disabled:opacity-60"
-            >
-              {couponPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking...
-                </>
+          {couponOpen ? (
+            <form onSubmit={onRedeemCoupon} className="mt-4 border-t border-primary/20 pt-4">
+              <Label
+                htmlFor="coupon"
+                className="flex items-center gap-1.5 font-display text-xs font-semibold text-heading"
+              >
+                <Ticket className="h-3.5 w-3.5 text-primary" />
+                Coupon code
+              </Label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="coupon"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="CLARIFY-XXXX-XXXX"
+                  maxLength={64}
+                  autoFocus
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  disabled={couponPending}
+                  className="h-10 flex-1 px-3 font-mono text-sm tracking-wide placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/60"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={couponPending || !couponCode.trim()}
+                  className="h-10 bg-background px-5 font-semibold disabled:opacity-60"
+                >
+                  {couponPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    "Apply"
+                  )}
+                </Button>
+              </div>
+              {couponError ? (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {couponError}
+                </p>
               ) : (
-                "Apply"
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Unlocks Pro immediately, with no payment.
+                </p>
               )}
-            </Button>
-          </div>
-          {couponError && (
-            <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-xs text-destructive">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {couponError}
-            </p>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCouponOpen(true)}
+              className="mt-3 w-full text-center text-xs font-medium text-primary underline-offset-2 transition-colors hover:text-primary-hover hover:underline"
+            >
+              Have a coupon code?
+            </button>
           )}
-        </form>
+        </div>
       </div>
     </div>
   );
