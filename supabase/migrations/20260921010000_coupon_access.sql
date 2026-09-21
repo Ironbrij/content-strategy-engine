@@ -35,6 +35,9 @@ alter table public.coupon_redemptions enable row level security;
 -- it is the only thing that can read this table.
 
 -- Users may see which codes they personally redeemed, so the UI can say so.
+drop policy if exists "Users can view their own redemptions"
+  on public.coupon_redemptions;
+
 create policy "Users can view their own redemptions"
   on public.coupon_redemptions
   for select

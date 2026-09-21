@@ -19,6 +19,9 @@ alter table public.subscriptions enable row level security;
 -- policy: the Stripe webhook is the only writer, and it uses the service
 -- role key (which bypasses RLS). A client can therefore see its own
 -- entitlement but can never grant itself one.
+drop policy if exists "Users can view their own subscription"
+  on public.subscriptions;
+
 create policy "Users can view their own subscription"
   on public.subscriptions
   for select
