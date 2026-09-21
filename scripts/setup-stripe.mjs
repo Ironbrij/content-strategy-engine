@@ -38,6 +38,10 @@ const LOOKUP_KEY = process.env.PRICE_LOOKUP_KEY ?? "clarify_pro";
 
 const RECREATE_WEBHOOK = process.argv.includes("--recreate-webhook");
 
+// Stripe prices are immutable -- the amount can never be edited. Changing what
+// you charge means creating a new price and moving the plan onto it.
+const NEW_PRICE = process.argv.includes("--new-price");
+
 // Secrets land here rather than in the terminal. Gitignored.
 const OUT_FILE = "stripe-env.local";
 
@@ -129,43 +133,65 @@ const existingPrices = await stripe("/prices", {
 
 let price = existingPrices.data?.[0];
 
-if (price) {
+if (price && !NEW_PRICE) {
   console.log(`      reusing existing price ${price.id} (lookup_key "${LOOKUP_KEY}")`);
+  console.log(`      to change the amount: re-run with --new-price and a new PRICE_AMOUNT`);
 } else {
   if (!PRICE_AMOUNT) {
     fail(
-      "PRICE_AMOUNT is not set, and no price exists yet.\n" +
-        "         Set it in the currency's smallest unit -- 2900 means $29.00 for usd.",
+      "PRICE_AMOUNT is not set.\n" +
+        "         Set it in the currency's smallest unit -- 2700 means $27.00 for usd.",
     );
   }
   if (!/^\d+$/.test(PRICE_AMOUNT)) {
     fail(`PRICE_AMOUNT must be a whole number of minor units; got "${PRICE_AMOUNT}".`);
   }
 
-  const product = await stripe("/products", {
-    body: {
-      name: PRODUCT_NAME,
-      description: "Unlimited content strategy generations",
-      metadata: { app: "clarify-content-engine" },
-    },
-  });
-  console.log(`      created product ${product.id} (${PRODUCT_NAME})`);
+  // Keep the same product across price changes, so the plan keeps its identity
+  // and its name in Stripe's reporting; only the price object is replaced.
+  let productId = price?.product;
+  if (productId) {
+    console.log(`      reusing product ${productId}`);
+  } else {
+    const product = await stripe("/products", {
+      body: {
+        name: PRODUCT_NAME,
+        description: "Unlimited content strategy generations",
+        metadata: { app: "clarify-content-engine" },
+      },
+    });
+    productId = product.id;
+    console.log(`      created product ${productId} (${PRODUCT_NAME})`);
+  }
 
-  price = await stripe("/prices", {
+  const created = await stripe("/prices", {
     body: {
-      product: product.id,
+      product: productId,
       unit_amount: PRICE_AMOUNT,
       currency: PRICE_CURRENCY,
       recurring: { interval: PRICE_INTERVAL },
       lookup_key: LOOKUP_KEY,
+      // Moves the lookup key off the old price onto this one, so later runs
+      // find the new price rather than the retired one.
+      transfer_lookup_key: price ? true : undefined,
       metadata: { app: "clarify-content-engine" },
     },
   });
 
   const display = (Number(PRICE_AMOUNT) / 100).toFixed(2);
   console.log(
-    `      created price ${price.id} - ${display} ${PRICE_CURRENCY.toUpperCase()}/${PRICE_INTERVAL}`,
+    `      created price ${created.id} - ${display} ${PRICE_CURRENCY.toUpperCase()}/${PRICE_INTERVAL}`,
   );
+
+  if (price) {
+    // Archive the old price so nothing new can check out on it. Anyone already
+    // subscribed keeps paying the old amount until they cancel and resubscribe;
+    // Stripe never re-prices an existing subscription on its own.
+    await stripe(`/prices/${price.id}`, { body: { active: false } });
+    console.log(`      archived old price ${price.id} (existing subscribers keep it)`);
+  }
+
+  price = created;
 }
 
 // --- 3. Webhook endpoint -----------------------------------------------------

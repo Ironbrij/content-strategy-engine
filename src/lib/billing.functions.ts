@@ -13,7 +13,7 @@ const inputSchema = z.object({
 // scripts/setup-stripe.mjs) and mirror it here, or override with
 // VITE_PRO_PRICE_LABEL / VITE_PRO_PRICE_CADENCE.
 export const FREE_PRICE_LABEL = "$0";
-export const PRO_PRICE_LABEL: string = import.meta.env?.VITE_PRO_PRICE_LABEL || "$47";
+export const PRO_PRICE_LABEL: string = import.meta.env?.VITE_PRO_PRICE_LABEL || "$27";
 export const PRO_PRICE_CADENCE: string = import.meta.env?.VITE_PRO_PRICE_CADENCE || "per month";
 
 // Return URLs must not come from the client: a caller-supplied origin would

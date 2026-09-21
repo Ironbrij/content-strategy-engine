@@ -14,7 +14,7 @@ only your secret key. The app uses Stripe-hosted Checkout, so the publishable
 | Plan | Price | Generations |
 | --- | --- | --- |
 | Free | $0 | 3, lifetime |
-| Pro | $47 / month | Unlimited |
+| Pro | $27 / month | Unlimited |
 | Coupon | $0 | Unlimited, no payment step |
 
 The prices on the upgrade card come from `FREE_PRICE_LABEL` / `PRO_PRICE_LABEL`
@@ -70,16 +70,16 @@ into a chat or commit it.**
 PowerShell (Windows):
 
 ```powershell
-$env:STRIPE_SECRET_KEY="sk_test_..."; $env:APP_URL="https://your-app.example.com"; $env:PRICE_AMOUNT="4700"; npm run setup:stripe
+$env:STRIPE_SECRET_KEY="sk_test_..."; $env:APP_URL="https://your-app.example.com"; $env:PRICE_AMOUNT="2700"; npm run setup:stripe
 ```
 
 bash / macOS / Linux:
 
 ```bash
-STRIPE_SECRET_KEY=sk_test_... APP_URL=https://your-app.example.com PRICE_AMOUNT=4700 npm run setup:stripe
+STRIPE_SECRET_KEY=sk_test_... APP_URL=https://your-app.example.com PRICE_AMOUNT=2700 npm run setup:stripe
 ```
 
-`PRICE_AMOUNT` is in the currency's smallest unit — `4700` means $47.00. Add
+`PRICE_AMOUNT` is in the currency's smallest unit — `2700` means $27.00. Add
 `PRICE_CURRENCY` (default `usd`) and `PRICE_INTERVAL` (default `month`) to change
 those.
 
