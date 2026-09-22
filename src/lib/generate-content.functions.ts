@@ -3,7 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase";
 
-export const GENERATION_LIMIT = 3;
+// There is no free allowance. Everything a non-subscriber may do comes from
+// coupon credits, so this is the floor the RPC starts from.
+export const FREE_GENERATIONS = 0;
+
+// What a code hands out. Display only -- public.coupons.grant_credits is the
+// authority, and the UI reads the real figure back via coupon_credits().
+export const COUPON_GENERATIONS = 3;
 
 const inputSchema = z.object({
   avatar: z.string().trim().min(1).max(2000),
@@ -141,12 +147,12 @@ export const generateContent = createServerFn({ method: "POST" })
     });
     const { data: generationsUsed, error: reserveError } = await supabaseServer.rpc(
       "reserve_generation_slot",
-      { p_limit: GENERATION_LIMIT }
+      { p_limit: FREE_GENERATIONS }
     );
     if (reserveError) {
       if (reserveError.message.includes("generation_limit_reached")) {
         throw new Error(
-          `You've used all ${GENERATION_LIMIT} free generations for this account. Upgrade to Pro for unlimited generations.`
+          "You're out of generations. Enter a code, or upgrade to Pro for unlimited access."
         );
       }
       console.error("Failed to reserve a generation slot", reserveError.message);

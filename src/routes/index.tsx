@@ -42,7 +42,8 @@ import { CopyButton } from "@/components/copy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   generateContent,
-  GENERATION_LIMIT,
+  COUPON_GENERATIONS,
+  FREE_GENERATIONS,
   type GenerateResult,
   type StoryItem,
   type MetaphorItem,
@@ -127,6 +128,8 @@ function saveDraft(draft: FormDraft) {
 // here next to the UI that shows it.
 function couponErrorMessage(raw: string): string {
   if (raw.includes("coupon_not_found")) return "That code isn't valid. Check for typos.";
+  if (raw.includes("coupon_already_used_on_account"))
+    return "You've already used a code on this account.";
   if (raw.includes("coupon_already_redeemed")) return "You've already used that code.";
   if (raw.includes("coupon_exhausted")) return "That code has been fully claimed.";
   if (raw.includes("coupon_expired")) return "That code has expired.";
@@ -166,6 +169,11 @@ function Page() {
   // between the two only matters on the subscription page, which asks for
   // itself -- here all that matters is whether the cap applies.
   const [hasProAccess, setHasProAccess] = useState(false);
+  // Total generations this account may run: the (zero) free tier plus whatever
+  // a redeemed code granted. Read from the server rather than assumed, so it
+  // stays right if a code's value changes.
+  const [allowance, setAllowance] = useState(FREE_GENERATIONS);
+  const [hasRedeemedCoupon, setHasRedeemedCoupon] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingPending, setBillingPending] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -178,21 +186,23 @@ function Page() {
   );
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
-  // Reads the two rows that decide what this page allows: lifetime usage and
-  // the Stripe entitlement. Returns whether the account is Pro, so the
-  // post-checkout poll below can stop as soon as the webhook lands.
+  // Everything the page needs to decide what this account may do: usage so far,
+  // whether a subscription lifts the cap entirely, how many generations a code
+  // granted, and whether a code has been used at all (one per account, ever).
   const refreshEntitlement = useCallback(async () => {
-    const [{ data: usage }, { data: proAccess }, { data: subscriptionRow }] = await Promise.all([
-      supabase.from("generation_usage").select("used_count").maybeSingle(),
-      // One question, answered server-side: subscription or coupon, either way.
-      supabase.rpc("has_pro_access"),
-      supabase.from("subscriptions").select("status, current_period_end").maybeSingle(),
-    ]);
-    setGenerationsUsed(usage?.used_count ?? 0);
+    const [{ data: usage }, { data: proAccess }, { data: credits }, { data: redemption }] =
+      await Promise.all([
+        supabase.from("generation_usage").select("used_count").maybeSingle(),
+        supabase.rpc("has_pro_access"),
+        supabase.rpc("coupon_credits"),
+        supabase.from("coupon_redemptions").select("code").limit(1).maybeSingle(),
+      ]);
 
-    // Falls back to the subscription row if has_pro_access() isn't there yet,
-    // so the app still works between deploying and running the migration.
-    const pro = proAccess === true || isEntitled(subscriptionRow);
+    setGenerationsUsed(usage?.used_count ?? 0);
+    setAllowance(FREE_GENERATIONS + (typeof credits === "number" ? credits : 0));
+    setHasRedeemedCoupon(Boolean(redemption));
+
+    const pro = proAccess === true;
     setHasProAccess(pro);
     return pro;
   }, []);
@@ -375,8 +385,10 @@ function Page() {
     });
   }
 
+  // With a zero free tier this is true from the very first login, which is the
+  // point: nobody generates anything without a code or a subscription.
   const limitReached =
-    !hasProAccess && generationsUsed !== null && generationsUsed >= GENERATION_LIMIT;
+    !hasProAccess && generationsUsed !== null && generationsUsed >= allowance;
 
   if (!authChecked) {
     return (
@@ -401,6 +413,8 @@ function Page() {
               onRedeemCoupon={handleRedeemCoupon}
               couponPending={couponPending}
               couponError={couponError}
+              allowance={allowance}
+              hasRedeemedCoupon={hasRedeemedCoupon}
             />
           ) : (
             <InputCard
@@ -416,6 +430,7 @@ function Page() {
               isPending={mutation.isPending}
               generationsUsed={generationsUsed}
               hasProAccess={hasProAccess}
+              allowance={allowance}
             />
           )}
           {billingError && (
@@ -605,9 +620,10 @@ interface InputCardProps {
   isPending: boolean;
   generationsUsed: number | null;
   hasProAccess: boolean;
+  allowance: number;
 }
 
-function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed, hasProAccess }: InputCardProps) {
+function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfession, audience, setAudience, persona, setPersona, onSubmit, isPending, generationsUsed, hasProAccess, allowance }: InputCardProps) {
   function loadExample() {
     setAvatar(EXAMPLE.avatar);
     setServicesProfession(EXAMPLE.services);
@@ -708,7 +724,7 @@ function InputCard({ avatar, setAvatar, servicesProfession, setServicesProfessio
       ) : (
         generationsUsed !== null && (
           <p className="mt-3 text-center text-xs text-muted-foreground sm:text-right">
-            {Math.max(GENERATION_LIMIT - generationsUsed, 0)} of {GENERATION_LIMIT} free generations remaining
+            {Math.max(allowance - generationsUsed, 0)} of {allowance} generations remaining
           </p>
         )
       )}
@@ -724,6 +740,8 @@ function UpgradeCard({
   onRedeemCoupon,
   couponPending,
   couponError,
+  allowance,
+  hasRedeemedCoupon,
 }: {
   onUpgrade: () => void;
   isPending: boolean;
@@ -732,11 +750,13 @@ function UpgradeCard({
   onRedeemCoupon: (e: React.FormEvent<HTMLFormElement>) => void;
   couponPending: boolean;
   couponError: string | null;
+  allowance: number;
+  hasRedeemedCoupon: boolean;
 }) {
-  // Presentation state only, so it stays local. The coupon lives inside the Pro
-  // column on purpose: it grants this plan, so it belongs to this plan rather
-  // than floating under both as if it applied to Free too.
-  const [couponOpen, setCouponOpen] = useState(false);
+  // Two quite different moments share this card: someone who has never had a
+  // code and is being asked for one, and someone who has spent what a code gave
+  // them. Leading with the right sentence matters more than reusing one.
+  const neverStarted = !hasRedeemedCoupon && allowance === 0;
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
@@ -745,34 +765,98 @@ function UpgradeCard({
           <Crown className="h-5 w-5 text-primary" />
         </div>
         <p className="mt-4 font-display text-base font-semibold text-heading">
-          You've used all {GENERATION_LIMIT} free generations
+          {neverStarted
+            ? "Enter a code to get started"
+            : `You've used all ${allowance} of your generations`}
         </p>
         <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-          Everything you've already generated stays available in{" "}
-          <Link to="/history" className="font-medium text-primary underline-offset-2 hover:underline">
-            History
-          </Link>
-          .
+          {neverStarted ? (
+            <>
+              A code gives you {COUPON_GENERATIONS} generations to try Clarify. Or go straight to Pro
+              for unlimited.
+            </>
+          ) : (
+            <>
+              Everything you've already generated stays available in{" "}
+              <Link
+                to="/history"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                History
+              </Link>
+              .
+            </>
+          )}
         </p>
       </div>
 
       <div className="mt-7 grid items-start gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-border bg-background p-5">
-          <p className="font-display text-sm font-semibold text-heading">Free</p>
+          <p className="font-display text-sm font-semibold text-heading">Free trial</p>
           <p className="mt-2 font-display text-2xl font-extrabold text-heading">
             {FREE_PRICE_LABEL}
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Your current plan</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Requires a code</p>
           <ul className="mt-4 grid gap-2 text-sm text-body">
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <span>{GENERATION_LIMIT} generations, used up</span>
+              <span>{COUPON_GENERATIONS} generations</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <span>History, PDF export and copy tools</span>
             </li>
           </ul>
+
+          {hasRedeemedCoupon ? (
+            <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
+              You've used your code for this account. Pro is the way on from here.
+            </p>
+          ) : (
+            <form onSubmit={onRedeemCoupon} className="mt-5 border-t border-border pt-4">
+              <Label
+                htmlFor="coupon"
+                className="flex items-center gap-1.5 font-display text-xs font-semibold text-heading"
+              >
+                <Ticket className="h-3.5 w-3.5 text-primary" />
+                Coupon code
+              </Label>
+              <div className="mt-2 flex flex-col gap-2">
+                <Input
+                  id="coupon"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="CLARIFY-XXXX-XXXX"
+                  maxLength={64}
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={couponPending}
+                  className="h-10 px-3 font-mono text-sm tracking-wide placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/60"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={couponPending || !couponCode.trim()}
+                  className="h-10 px-5 font-semibold disabled:opacity-60"
+                >
+                  {couponPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    "Apply code"
+                  )}
+                </Button>
+              </div>
+              {couponError && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {couponError}
+                </p>
+              )}
+            </form>
+          )}
         </div>
 
         <div className="rounded-lg border-2 border-primary bg-soft-tint/30 p-5">
@@ -796,7 +880,7 @@ function UpgradeCard({
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>Everything in Free</span>
+              <span>No code needed</span>
             </li>
           </ul>
           <Button
@@ -819,66 +903,6 @@ function UpgradeCard({
           <p className="mt-2 text-center text-xs text-muted-foreground">
             Secure checkout by Stripe
           </p>
-
-          {couponOpen ? (
-            <form onSubmit={onRedeemCoupon} className="mt-4 border-t border-primary/20 pt-4">
-              <Label
-                htmlFor="coupon"
-                className="flex items-center gap-1.5 font-display text-xs font-semibold text-heading"
-              >
-                <Ticket className="h-3.5 w-3.5 text-primary" />
-                Coupon code
-              </Label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="coupon"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="CLARIFY-XXXX-XXXX"
-                  maxLength={64}
-                  autoFocus
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                  spellCheck={false}
-                  disabled={couponPending}
-                  className="h-10 flex-1 px-3 font-mono text-sm tracking-wide placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/60"
-                />
-                <Button
-                  type="submit"
-                  variant="outline"
-                  disabled={couponPending || !couponCode.trim()}
-                  className="h-10 bg-background px-5 font-semibold disabled:opacity-60"
-                >
-                  {couponPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    "Apply"
-                  )}
-                </Button>
-              </div>
-              {couponError ? (
-                <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
-                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {couponError}
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Unlocks Pro immediately, with no payment.
-                </p>
-              )}
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCouponOpen(true)}
-              className="mt-3 w-full text-center text-xs font-medium text-primary underline-offset-2 transition-colors hover:text-primary-hover hover:underline"
-            >
-              Have a coupon code?
-            </button>
-          )}
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 # Paywall setup
 
-Free accounts get `GENERATION_LIMIT` (3) lifetime generations. Pro lifts the cap,
-either by paying through Stripe or by redeeming a coupon code. Enforcement lives
-in Postgres, not the browser, so a tampered client gains nothing.
+New accounts get nothing: the paywall shows on first login. A coupon code grants
+`COUPON_GENERATIONS` (3) generations; a Stripe subscription lifts the cap
+entirely. Enforcement lives in Postgres, not the browser, so a tampered client
+gains nothing.
 
 **No Stripe dashboard access needed.** `scripts/setup-stripe.mjs` creates the
 product, price, webhook endpoint and billing portal config over the API using
@@ -13,9 +14,13 @@ only your secret key. The app uses Stripe-hosted Checkout, so the publishable
 
 | Plan | Price | Generations |
 | --- | --- | --- |
-| Free | $0 | 3, lifetime |
+| Free | $0 | **0** — the paywall shows on first login |
+| Code | $0 | 3, from a coupon. One code per account, ever |
 | Pro | $27 / month | Unlimited |
-| Coupon | $0 | Unlimited, no payment step |
+
+There is no free allowance. A coupon grants a fixed number of generations (not
+unlimited, not Pro); a subscription is the only route to unlimited. Codes are
+shareable — any number of accounts may claim the same code, once each.
 
 The prices on the upgrade card come from `FREE_PRICE_LABEL` / `PRO_PRICE_LABEL`
 in `src/lib/billing.functions.ts`. Those are **labels only** — what anyone is

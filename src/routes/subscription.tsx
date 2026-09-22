@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { GENERATION_LIMIT } from "@/lib/generate-content.functions";
+import { COUPON_GENERATIONS, FREE_GENERATIONS } from "@/lib/generate-content.functions";
 import {
   createCheckoutSession,
   createPortalSession,
@@ -39,21 +39,18 @@ interface SubscriptionRow {
 
 interface RedemptionRow {
   code: string;
+  credits_granted: number | null;
   access_until: string | null;
   redeemed_at: string;
 }
 
+// Pro is subscription-only now. A code buys generations, not Pro -- keeping the
+// two apart is the point of the model, so this asks only about Stripe.
 function isStripeActive(row: SubscriptionRow | null): boolean {
   if (!row?.status) return false;
   if (row.status !== "active" && row.status !== "trialing") return false;
   if (!row.current_period_end) return true;
   return new Date(row.current_period_end).getTime() > Date.now();
-}
-
-function isRedemptionActive(row: RedemptionRow | null): boolean {
-  if (!row) return false;
-  if (!row.access_until) return true;
-  return new Date(row.access_until).getTime() > Date.now();
 }
 
 function formatDate(iso: string | null): string {
@@ -67,6 +64,8 @@ function formatDate(iso: string | null): string {
 
 // redeem_coupon() raises bare tokens; the wording lives next to the UI.
 function couponErrorMessage(raw: string): string {
+  if (raw.includes("coupon_already_used_on_account"))
+    return "You've already used a code on this account.";
   if (raw.includes("coupon_not_found")) return "That code isn't valid. Check for typos.";
   if (raw.includes("coupon_already_redeemed")) return "You've already used that code.";
   if (raw.includes("coupon_exhausted")) return "That code has been fully claimed.";
@@ -85,6 +84,7 @@ function SubscriptionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [used, setUsed] = useState(0);
+  const [allowance, setAllowance] = useState(FREE_GENERATIONS);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [redemption, setRedemption] = useState<RedemptionRow | null>(null);
 
@@ -96,7 +96,7 @@ function SubscriptionPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [{ data: usage }, { data: sub }, { data: red }] = await Promise.all([
+    const [{ data: usage }, { data: sub }, { data: red }, { data: credits }] = await Promise.all([
       supabase.from("generation_usage").select("used_count").maybeSingle(),
       supabase
         .from("subscriptions")
@@ -104,15 +104,17 @@ function SubscriptionPage() {
         .maybeSingle(),
       supabase
         .from("coupon_redemptions")
-        .select("code, access_until, redeemed_at")
+        .select("code, credits_granted, access_until, redeemed_at")
         .order("redeemed_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase.rpc("coupon_credits"),
     ]);
 
     setUsed(usage?.used_count ?? 0);
     setSubscription((sub as SubscriptionRow | null) ?? null);
     setRedemption((red as RedemptionRow | null) ?? null);
+    setAllowance(FREE_GENERATIONS + (typeof credits === "number" ? credits : 0));
     setIsLoading(false);
   }, []);
 
@@ -128,9 +130,9 @@ function SubscriptionPage() {
     });
   }, [navigate, refresh]);
 
-  const stripeActive = isStripeActive(subscription);
-  const couponActive = isRedemptionActive(redemption);
-  const isPro = stripeActive || couponActive;
+  const isPro = isStripeActive(subscription);
+  const hasRedeemed = redemption !== null;
+  const remaining = Math.max(allowance - used, 0);
 
   async function redirectToStripe(
     create: (args: { data: { access_token: string } }) => Promise<{ url: string }>,
@@ -229,26 +231,24 @@ function SubscriptionPage() {
               <div className="flex items-center gap-2">
                 {isPro && <Crown className="h-5 w-5 text-primary" />}
                 <p className="font-display text-xl font-bold text-heading">
-                  {isPro ? "Pro" : "Free"}
+                  {isPro ? "Pro" : hasRedeemed ? "Free trial" : "Free"}
                 </p>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isPro ? "Unlimited content strategy generations" : "Your current plan"}
+                {isPro
+                  ? "Unlimited content strategy generations"
+                  : hasRedeemed
+                    ? `${remaining} of ${allowance} generations left`
+                    : "No generations yet — a code or Pro unlocks them"}
               </p>
             </div>
             <p className="font-display text-2xl font-extrabold text-heading">
               {isPro ? (
                 <>
-                  {couponActive && !stripeActive ? (
-                    FREE_PRICE_LABEL
-                  ) : (
-                    <>
-                      {PRO_PRICE_LABEL}
-                      <span className="ml-1 text-xs font-medium text-muted-foreground">
-                        {PRO_PRICE_CADENCE}
-                      </span>
-                    </>
-                  )}
+                  {PRO_PRICE_LABEL}
+                  <span className="ml-1 text-xs font-medium text-muted-foreground">
+                    {PRO_PRICE_CADENCE}
+                  </span>
                 </>
               ) : (
                 FREE_PRICE_LABEL
@@ -260,16 +260,12 @@ function SubscriptionPage() {
             <div>
               <dt className="text-muted-foreground">Generations used</dt>
               <dd className="mt-0.5 font-medium text-heading">
-                {isPro ? `${used} (unlimited)` : `${used} of ${GENERATION_LIMIT}`}
+                {isPro ? `${used} (unlimited)` : `${used} of ${allowance}`}
               </dd>
             </div>
 
-            {stripeActive && (
+            {isPro && (
               <>
-                <div>
-                  <dt className="text-muted-foreground">Unlocked by</dt>
-                  <dd className="mt-0.5 font-medium text-heading">Paid subscription</dd>
-                </div>
                 <div>
                   <dt className="text-muted-foreground">
                     {subscription?.cancel_at_period_end ? "Access ends" : "Renews"}
@@ -288,24 +284,18 @@ function SubscriptionPage() {
               </>
             )}
 
-            {couponActive && !stripeActive && (
+            {hasRedeemed && (
               <>
                 <div>
-                  <dt className="text-muted-foreground">Unlocked by</dt>
-                  <dd className="mt-0.5 font-medium text-heading">Coupon code</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Code</dt>
+                  <dt className="text-muted-foreground">Code used</dt>
                   <dd className="mt-0.5 font-mono text-xs font-medium tracking-wide text-heading">
                     {redemption?.code}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Access</dt>
+                  <dt className="text-muted-foreground">Granted</dt>
                   <dd className="mt-0.5 font-medium text-heading">
-                    {redemption?.access_until
-                      ? `Until ${formatDate(redemption.access_until)}`
-                      : "Lifetime"}
+                    {redemption?.credits_granted ?? 0} generations
                   </dd>
                 </div>
                 <div>
@@ -320,41 +310,34 @@ function SubscriptionPage() {
 
           <div className="mt-6 border-t border-border pt-6">
             {isPro ? (
-              stripeActive ? (
-                <>
-                  <Button
-                    onClick={() =>
-                      redirectToStripe(
-                        openBillingPortal,
-                        "Couldn't open the billing portal. Please try again.",
-                      )
-                    }
-                    disabled={billingPending}
-                    variant="outline"
-                    className="h-11 w-full bg-background px-6 font-semibold disabled:opacity-70 sm:w-auto"
-                  >
-                    {billingPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Opening...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Manage billing
-                      </>
-                    )}
-                  </Button>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Update your card, download invoices, or cancel — handled by Stripe.
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Your Pro access came from a coupon, so there's no billing to manage. Nothing will
-                  ever be charged.
+              <>
+                <Button
+                  onClick={() =>
+                    redirectToStripe(
+                      openBillingPortal,
+                      "Couldn't open the billing portal. Please try again.",
+                    )
+                  }
+                  disabled={billingPending}
+                  variant="outline"
+                  className="h-11 w-full bg-background px-6 font-semibold disabled:opacity-70 sm:w-auto"
+                >
+                  {billingPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Manage billing
+                    </>
+                  )}
+                </Button>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Update your card, download invoices, or cancel — handled by Stripe.
                 </p>
-              )
+              </>
             ) : (
               <>
                 <div className="grid gap-2 text-sm text-body">
@@ -391,7 +374,14 @@ function SubscriptionPage() {
                   )}
                 </Button>
 
-                {couponOpen ? (
+                {/* One code per account, ever -- so once it's been used there is
+                    nothing to offer here, and pretending otherwise just invites
+                    an error message. */}
+                {hasRedeemed ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    You've already used a code on this account.
+                  </p>
+                ) : couponOpen ? (
                   <form onSubmit={handleRedeemCoupon} className="mt-5 max-w-md">
                     <Label
                       htmlFor="coupon"
@@ -436,7 +426,7 @@ function SubscriptionPage() {
                       </p>
                     ) : (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Unlocks Pro immediately, with no payment.
+                        Gives you {COUPON_GENERATIONS} generations, with no payment.
                       </p>
                     )}
                   </form>
