@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CopyButton } from "@/components/copy-button";
+import { SupportWidget } from "@/components/support-widget";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   generateContent,
@@ -477,6 +478,7 @@ function Page() {
             </div>
           </section>
         )}
+        <SupportWidget className="mt-16" />
       </main>
       <Footer />
     </div>
